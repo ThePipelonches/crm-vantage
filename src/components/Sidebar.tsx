@@ -56,7 +56,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-black border-r border-white/10 flex flex-col flex-shrink-0">
+    <aside className="w-64 bg-black border-r border-white/10 flex flex-col flex-shrink-0 hidden lg:flex">
       <div className="px-6 py-6 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">

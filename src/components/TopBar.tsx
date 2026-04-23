@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { Bell, Clock } from 'lucide-react';
+import { Bell, Clock, Menu } from 'lucide-react';
 
 const routeTitles: Record<string, string> = {
   '/setter': 'Dashboard Comercial',
@@ -10,7 +10,11 @@ const routeTitles: Record<string, string> = {
   '/admin': 'Panel de Administración',
 };
 
-export function TopBar() {
+interface TopBarProps {
+  onMenuClick?: () => void;
+}
+
+export function TopBar({ onMenuClick }: TopBarProps) {
   const location = useLocation();
   const title = routeTitles[location.pathname] || 'Vantage';
 
@@ -19,10 +23,18 @@ export function TopBar() {
   const dateStr = now.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <header className="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-black/80 backdrop-blur-md flex-shrink-0">
-      <h2 className="text-sm font-medium text-white/90">{title}</h2>
+    <header className="h-14 border-b border-white/10 flex items-center justify-between px-4 sm:px-6 bg-black/80 backdrop-blur-md flex-shrink-0">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden p-1.5 rounded-lg hover:bg-white/5 transition-colors -ml-1.5"
+        >
+          <Menu className="w-5 h-5 text-muted-foreground" />
+        </button>
+        <h2 className="text-sm font-medium text-white/90">{title}</h2>
+      </div>
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
           <Clock className="w-3.5 h-3.5" />
           <span>{timeStr}</span>
           <span className="text-white/20">|</span>

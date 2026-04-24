@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { LoginPage } from '@/pages/LoginPage';
 import { AppLayout } from '@/layouts/AppLayout';
 import { SetterDashboard } from '@/pages/setter/Dashboard';
-import { LeadsPage } from '@/pages/setter/Leads';
+import Leads from '@/pages/setter/Leads';
 import { AppointmentsPage } from '@/pages/setter/Appointments';
 import { PsychologistDashboard } from '@/pages/psychologist/Dashboard';
 import { ClientsPage } from '@/pages/psychologist/Clients';
@@ -38,7 +38,7 @@ function AppRoutes() {
       >
         <Route index element={<RoleRedirect />} />
         <Route path="setter" element={<SetterDashboard />} />
-        <Route path="leads" element={<LeadsPage />} />
+        <Route path="leads" element={<Leads />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="commercial" element={<CommercialDashboard />} />
         <Route path="closers" element={<ClosersPage />} />

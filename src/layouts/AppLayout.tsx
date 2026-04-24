@@ -13,9 +13,8 @@ export function AppLayout() {
 
   // 🔐 Protección de rutas
   if (!user) {
-    navigate('/login', { replace: true });
-    return null;
-  }
+  return null; // evita crash mientras carga auth
+  } 
 
   return (
     <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">

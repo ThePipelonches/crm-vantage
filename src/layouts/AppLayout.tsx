@@ -11,23 +11,38 @@ export function AppLayout() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // 🔐 Protección de rutas
   if (!user) {
     navigate('/login', { replace: true });
     return null;
   }
 
   return (
-    <div className="flex h-screen w-full bg-black text-white overflow-hidden">
+    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
+
+      {/* SIDEBAR DESKTOP */}
       <Sidebar />
-      <MobileMenu open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+
+      {/* SIDEBAR MOBILE */}
+      <MobileMenu
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+      />
+
+      {/* CONTENIDO */}
       <div className="flex flex-col flex-1 min-w-0">
+
+        {/* TOPBAR */}
         <TopBar onMenuClick={() => setMobileMenuOpen(true)} />
+
+        {/* MAIN */}
         <main
           key={location.pathname}
           className="flex-1 overflow-y-auto scrollbar-thin p-4 sm:p-6 animate-fade-in"
         >
           <Outlet />
         </main>
+
       </div>
     </div>
   );

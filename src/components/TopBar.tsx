@@ -1,62 +1,40 @@
-import { useLocation } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { Bell, Clock, Menu, Search, User } from 'lucide-react';
-import { useState } from 'react';
-
-const routeTitles: Record<string, string> = {
-  '/setter': 'Dashboard Comercial',
-  '/leads': 'Solicitudes de Contacto',
-  '/appointments': 'Consultas Agendadas',
-  '/commercial': 'Dashboard Comercial',
-  '/clinical': 'Dashboard Clínico',
-  '/clients': 'Expedientes Ejecutivos',
-  '/admin': 'Panel de Administración',
-};
+import React, { useState } from 'react';
+import { Bell, Menu, Search, User } from 'lucide-react';
 
 interface TopBarProps {
+  title?: string;
+  showMenuButton?: boolean;
   onMenuClick?: () => void;
 }
 
-export function TopBar({ onMenuClick }: TopBarProps) {
-  const location = useLocation();
-  const { user } = useAuth();
+const TopBar: React.FC<TopBarProps> = ({
+  title = '',
+  showMenuButton = false,
+  onMenuClick,
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
-
-  const title = routeTitles[location.pathname] || 'Vantage';
-
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString('es-MX', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
-  const dateStr = now.toLocaleDateString('es-MX', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  const [lateCount] = useState(0); // 🔥 TEMPORAL
 
   return (
-    <header className="h-16 border-b border-border flex items-center justify-between px-4 sm:px-6 md:px-8 bg-background sticky top-0 z-40">
-
-      {/* LEFT */}
+    <header className="h-16 bg-background border-b border-border flex items-center justify-between px-4 sm:px-6 md:px-8 sticky top-0 z-40">
       <div className="flex items-center gap-4">
-        <button
-          onClick={onMenuClick}
-          className="lg:hidden p-2 rounded-md hover:bg-secondary transition-colors"
-        >
-          <Menu className="w-5 h-5 text-foreground" />
-        </button>
+        {showMenuButton && (
+          <button
+            onClick={onMenuClick}
+            className="lg:hidden p-2 hover:bg-secondary rounded-md"
+          >
+            <Menu className="w-5 h-5 text-foreground" />
+          </button>
+        )}
 
-        <h2 className="text-sm sm:text-base font-medium text-foreground">
-          {title}
-        </h2>
+        {title && (
+          <h1 className="text-lg font-semibold text-foreground hidden sm:block">
+            {title}
+          </h1>
+        )}
       </div>
 
-      {/* RIGHT */}
-      <div className="flex items-center gap-2 sm:gap-4">
-
-        {/* SEARCH */}
+      <div className="flex items-center gap-4">
         <div className="relative hidden sm:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
@@ -64,37 +42,27 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             placeholder="Buscar..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="input-base pl-10 w-40 md:w-64"
+            className="input-base pl-10 w-48 md:w-64"
           />
         </div>
 
-        {/* TIME */}
-        <div className="hidden md:flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Clock className="w-3.5 h-3.5" />
-          <span>{timeStr}</span>
-          <span className="opacity-30">|</span>
-          <span className="capitalize">{dateStr}</span>
-        </div>
-
-        {/* NOTIFICATIONS */}
-        <button className="relative p-2 rounded-md hover:bg-secondary transition-colors">
+        <button className="relative p-2 hover:bg-secondary rounded-md">
           <Bell className="w-5 h-5 text-foreground" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          {lateCount > 0 && (
+            <span className="absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 bg-red-500 text-white rounded-full">
+              {lateCount}
+            </span>
+          )}
         </button>
 
-        {/* USER */}
-        <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-secondary transition-colors">
+        <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
-            <span className="text-xs font-semibold text-foreground">
-              {user?.name?.charAt(0) || 'U'}
-            </span>
+            <User className="w-4 h-4 text-foreground" />
           </div>
-
-          <span className="hidden md:block text-sm font-medium text-foreground">
-            {user?.name || 'Usuario'}
-          </span>
         </div>
       </div>
     </header>
   );
-}
+};
+
+export default TopBar;

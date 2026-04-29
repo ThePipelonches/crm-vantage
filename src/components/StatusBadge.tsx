@@ -1,5 +1,9 @@
-import type { LeadStatus, AppointmentStatus } from '@/types';
-import { LEAD_STATUS_LABELS, APPOINTMENT_STATUS_LABELS, ROL_RISK_LABELS } from '@/types';
+import type { LeadStatus, AppointmentStatus } from '../types';
+import {
+  LEAD_STATUS_LABELS,
+  APPOINTMENT_STATUS_LABELS,
+  ROL_RISK_LABELS,
+} from '../types';
 
 interface StatusBadgeProps {
   status: LeadStatus | AppointmentStatus | string;
@@ -47,9 +51,8 @@ export function StatusBadge({
   status,
   type,
   size = 'sm',
-  className = ''
+  className = '',
 }: StatusBadgeProps) {
-
   const style = semanticStyles[type]?.[status] || 'badge-default';
   const label = labels[type]?.[status] || status;
 

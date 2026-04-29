@@ -1,63 +1,75 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { StatusBadge } from '@/components/StatusBadge';
+import { getLeads, updateLeadStatus } from '@/services/leads';
 
-interface Lead {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  status: string;
-}
-
-export default function Leads() {
-  const [leads, setLeads] = useState<Lead[]>([]);
+export default function LeadsPage() {
+  const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  //////////////////////////////////////////////////
+  // LOAD LEADS FROM SUPABASE
+  //////////////////////////////////////////////////
+
   useEffect(() => {
-    fetchLeads();
+    loadLeads();
   }, []);
 
-  const fetchLeads = async () => {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error cargando leads:', error);
-    } else {
-      setLeads(data || []);
-    }
-
+  const loadLeads = async () => {
+    setLoading(true);
+    const data = await getLeads();
+    setLeads(data);
     setLoading(false);
   };
 
-  if (loading) {
-    return <div className="p-6 text-white">Cargando leads...</div>;
-  }
+  //////////////////////////////////////////////////
+  // MARK AS WON (SIMULACIÓN)
+  //////////////////////////////////////////////////
+
+  const handleWin = async (id: string) => {
+    await updateLeadStatus(id, 'won');
+    loadLeads(); // refresh
+  };
+
+  //////////////////////////////////////////////////
+  // UI
+  //////////////////////////////////////////////////
 
   return (
-    <div className="space-y-6 p-4">
-      <h1 className="text-xl font-semibold">Leads</h1>
+    <div className="p-6 space-y-4">
 
-      {leads.length === 0 ? (
-        <p className="text-muted-foreground">No hay leads aún</p>
-      ) : (
-        leads.map((lead) => (
-          <div key={lead.id} className="card p-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="font-medium">{lead.name}</p>
-                <p className="text-sm text-muted-foreground">{lead.email}</p>
-                <p className="text-xs text-muted-foreground">{lead.phone}</p>
-              </div>
+      <h1 className="text-xl font-semibold">
+        Leads (Supabase)
+      </h1>
 
-              <StatusBadge status={lead.status} type="lead" />
-            </div>
-          </div>
-        ))
+      {loading && (
+        <p className="text-muted-foreground">Cargando...</p>
       )}
+
+      {!loading && leads.length === 0 && (
+        <p className="text-muted-foreground">
+          No hay leads aún
+        </p>
+      )}
+
+      <div className="space-y-3">
+        {leads.map((lead) => (
+          <div
+            key={lead.id}
+            className="p-4 border border-white/10 rounded-lg"
+          >
+            <p className="font-medium">{lead.name}</p>
+            <p className="text-sm text-muted-foreground">{lead.phone}</p>
+            <p className="text-xs">{lead.status}</p>
+
+            <button
+              onClick={() => handleWin(lead.id)}
+              className="mt-2 px-3 py-1 bg-green-500 text-black rounded"
+            >
+              GANADO
+            </button>
+          </div>
+        ))}
+      </div>
+
     </div>
   );
 }

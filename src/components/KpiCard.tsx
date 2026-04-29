@@ -17,24 +17,51 @@ const accentMap = {
   red: 'from-red-400/20 to-red-400/5 text-red-400 border-red-400/20',
 };
 
-export function KpiCard({ title, value, subtitle, icon: Icon, accent = 'cyan', trend }: KpiCardProps) {
+export function KpiCard({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  accent = 'cyan',
+  trend,
+}: KpiCardProps) {
   return (
-    <div className={`card-surface rounded-xl p-5 hover-lift relative overflow-hidden`}>
-      <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl ${accentMap[accent]} rounded-full blur-2xl opacity-20 -mr-8 -mt-8`} />
+    <div className="card-surface rounded-xl p-5 hover-lift relative overflow-hidden">
+      <div
+        className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl ${accentMap[accent]} rounded-full blur-2xl opacity-20 -mr-8 -mt-8`}
+      />
+
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-3">
           <div className={`p-2 rounded-lg bg-gradient-to-br ${accentMap[accent]}`}>
             <Icon className="w-4 h-4" />
           </div>
+
           {trend && (
-            <span className={`text-[11px] font-mono-tech ${trend.positive ? 'text-emerald-400' : 'text-red-400'}`}>
-              {trend.positive ? '+' : ''}{trend.value}
+            <span
+              className={`text-[11px] font-mono-tech ${
+                trend.positive ? 'text-emerald-400' : 'text-red-400'
+              }`}
+            >
+              {trend.positive ? '+' : ''}
+              {trend.value}
             </span>
           )}
         </div>
-        <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">{title}</p>
-        <p className="text-2xl font-semibold font-mono-tech tracking-tight">{value}</p>
-        {subtitle && <p className="text-[11px] text-muted-foreground mt-1">{subtitle}</p>}
+
+        <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1">
+          {title}
+        </p>
+
+        <p className="text-2xl font-semibold font-mono-tech tracking-tight">
+          {value}
+        </p>
+
+        {subtitle && (
+          <p className="text-[11px] text-muted-foreground mt-1">
+            {subtitle}
+          </p>
+        )}
       </div>
     </div>
   );

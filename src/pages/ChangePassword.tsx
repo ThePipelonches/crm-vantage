@@ -7,7 +7,6 @@ export default function ChangePasswordPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const navigate = useNavigate();
-  const { refreshUser } = useAuth();
 
   const user = getCurrentUser();
 
@@ -27,7 +26,6 @@ export default function ChangePasswordPage() {
     changePassword(user.id, password);
 
     // 🔥 CLAVE: refrescar contexto
-    refreshUser();
 
     // 🔥 salir del loop
     navigate('/');

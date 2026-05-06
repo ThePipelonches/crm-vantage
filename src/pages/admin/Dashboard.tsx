@@ -1,267 +1,128 @@
-import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../hooks/useAuth';
+import { getDashboardMetrics, getRecentLeads } from '../../services/analytics';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Users, PhoneCall, Calendar, TrendingUp, DollarSign, Clock } from 'lucide-react';
+import { Badge } from '../../components/ui/badge';
 
-//////////////////////////////////////////////////
-// TYPES
-//////////////////////////////////////////////////
-
-interface Lead {
-  id: string;
-  created_at: string;
-  called_at?: string | null;
-  closing_status?: 'won' | 'lost' | null;
-  deal_value?: number | null;
-  cash_collected?: number | null;
-}
-
-interface Stats {
-  totalLeads: number;
-  calledLeads: number;
-  closedWon: number;
-  closedLost: number;
-  totalRevenue: number;
-  totalCash: number;
-
-  leadsToday: number;
-  calledToday: number;
-  salesToday: number;
-  cashToday: number;
-}
-
-//////////////////////////////////////////////////
-// COMPONENT
-//////////////////////////////////////////////////
-
-const DashboardAdmin: React.FC = () => {
-  const [stats, setStats] = useState<Stats>({
-    totalLeads: 0,
-    calledLeads: 0,
-    closedWon: 0,
-    closedLost: 0,
-    totalRevenue: 0,
-    totalCash: 0,
-
-    leadsToday: 0,
-    calledToday: 0,
-    salesToday: 0,
-    cashToday: 0,
-  });
-
-  const [alerts, setAlerts] = useState<string[]>([]);
+export default function AdminDashboard() {
+  const { user } = useAuth();
+  const [metrics, setMetrics] = useState<any>(null);
+  const [recentLeads, setRecentLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  //////////////////////////////////////////////////
-  // EFFECT
-  //////////////////////////////////////////////////
-
   useEffect(() => {
-    fetchStats();
+    async function loadData() {
+      try {
+        const [metricsData, leadsData] = await Promise.all([
+          getDashboardMetrics(),
+          getRecentLeads(5)
+        ]);
+        setMetrics(metricsData);
+        setRecentLeads(leadsData);
+      } catch (error) {
+        console.error("Error cargando dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
   }, []);
 
-  //////////////////////////////////////////////////
-  // FETCH
-  //////////////////////////////////////////////////
+  if (loading) return <div className="text-white">Cargando métricas...</div>;
+  if (!metrics) return <div className="text-red-400">Error al cargar datos.</div>;
 
-  const fetchStats = async () => {
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from('leads')
-      .select('*');
-
-    if (error) {
-      console.error('Error cargando stats:', error);
-      setLoading(false);
-      return;
-    }
-
-    const leads: Lead[] = data || [];
-
-    //////////////////////////////////////////////////
-    // GENERALES
-    //////////////////////////////////////////////////
-
-    const totalLeads = leads.length;
-
-    const calledLeads = leads.filter((l) => l.called_at).length;
-
-    const closedWonLeads = leads.filter(
-      (l) => l.closing_status === 'won'
-    );
-
-    const closedLostLeads = leads.filter(
-      (l) => l.closing_status === 'lost'
-    );
-
-    const totalRevenue = closedWonLeads.reduce(
-      (acc, l) => acc + (l.deal_value || 0),
-      0
-    );
-
-    const totalCash = closedWonLeads.reduce(
-      (acc, l) => acc + (l.cash_collected || 0),
-      0
-    );
-
-    //////////////////////////////////////////////////
-    // HOY
-    //////////////////////////////////////////////////
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const leadsToday = leads.filter(
-      (l) => new Date(l.created_at) >= today
-    );
-
-    const calledToday = leads.filter(
-      (l) =>
-        l.called_at &&
-        new Date(l.called_at) >= today
-    );
-
-    const salesToday = leads.filter(
-      (l) =>
-        l.closing_status === 'won' &&
-        new Date(l.created_at) >= today
-    );
-
-    const cashToday = salesToday.reduce(
-      (acc, l) => acc + (l.cash_collected || 0),
-      0
-    );
-
-    //////////////////////////////////////////////////
-    // ALERTAS
-    //////////////////////////////////////////////////
-
-    const newAlerts: string[] = [];
-
-    if (leadsToday.length > 0 && calledToday.length === 0) {
-      newAlerts.push('🚨 Ningún lead ha sido llamado hoy');
-    }
-
-    if (leadsToday.length > 0 && salesToday.length === 0) {
-      newAlerts.push('❌ Hoy no hay ventas registradas');
-    }
-
-    const conversion =
-      calledLeads > 0
-        ? closedWonLeads.length / calledLeads
-        : 0;
-
-    if (conversion < 0.2 && calledLeads > 5) {
-      newAlerts.push('⚠️ Conversión baja (menos del 20%)');
-    }
-
-    //////////////////////////////////////////////////
-    // SET STATE
-    //////////////////////////////////////////////////
-
-    setAlerts(newAlerts);
-
-    setStats({
-      totalLeads,
-      calledLeads,
-      closedWon: closedWonLeads.length,
-      closedLost: closedLostLeads.length,
-      totalRevenue,
-      totalCash,
-
-      leadsToday: leadsToday.length,
-      calledToday: calledToday.length,
-      salesToday: salesToday.length,
-      cashToday,
-    });
-
-    setLoading(false);
-  };
-
-  //////////////////////////////////////////////////
-  // DERIVED
-  //////////////////////////////////////////////////
-
-  const conversionRate =
-    stats.calledLeads > 0
-      ? ((stats.closedWon / stats.calledLeads) * 100).toFixed(1)
-      : '0';
-
-  //////////////////////////////////////////////////
-  // LOADING
-  //////////////////////////////////////////////////
-
-  if (loading) {
-    return (
-      <div className="p-6 text-muted-foreground">
-        Cargando dashboard...
-      </div>
-    );
-  }
-
-  //////////////////////////////////////////////////
-  // UI
-  //////////////////////////////////////////////////
+  const kpiCards = [
+    { title: "Total Leads", value: metrics.totalLeads, icon: Users, color: "text-blue-400" },
+    { title: "Nuevos (Hoy)", value: metrics.newLeads, icon: Clock, color: "text-green-400" },
+    { title: "Tasa Conversión", value: `${metrics.conversionRate}%`, icon: TrendingUp, color: "text-purple-400" },
+    { title: "Citas Hoy", value: metrics.appointmentsToday, icon: Calendar, color: "text-orange-400" },
+  ];
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold mb-6">
-        Dashboard Admin
-      </h1>
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h1 className="text-3xl font-bold text-white">Dashboard General</h1>
+        <p className="text-zinc-400">Bienvenido, {user?.full_name || user?.email}</p>
+      </div>
 
-      {/* ALERTAS */}
-      {alerts.length > 0 && (
-        <div className="mb-6 space-y-2">
-          {alerts.map((alert, index) => (
-            <div
-              key={index}
-              className="p-3 rounded-md bg-red-500/10 border border-red-500 text-red-400 text-sm"
-            >
-              {alert}
+      {/* KPI Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {kpiCards.map((kpi) => (
+          <Card key={kpi.title} className="bg-zinc-900 border-zinc-800 text-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-zinc-400">{kpi.title}</CardTitle>
+              <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{kpi.value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        {/* Tabla de Leads Recientes */}
+        <Card className="col-span-4 bg-zinc-900 border-zinc-800 text-white">
+          <CardHeader>
+            <CardTitle>Leads Recientes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="relative overflow-x-auto">
+              <table className="w-full text-sm text-left text-zinc-400">
+                <thead className="text-xs text-zinc-500 uppercase bg-zinc-950/50">
+                  <tr>
+                    <th className="px-4 py-3">Nombre</th>
+                    <th className="px-4 py-3">Estado</th>
+                    <th className="px-4 py-3">Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentLeads.map((lead) => (
+                    <tr key={lead.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
+                      <td className="px-4 py-3 font-medium text-white">{lead.full_name}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant="outline" className={`
+                          ${lead.status === 'new' ? 'bg-blue-900/30 text-blue-400 border-blue-800' : ''}
+                          ${lead.status === 'closed' ? 'bg-green-900/30 text-green-400 border-green-800' : ''}
+                          ${!['new','closed'].includes(lead.status) ? 'bg-zinc-800 text-zinc-300' : ''}
+                        `}>
+                          {lead.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">{new Date(lead.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                  {recentLeads.length === 0 && (
+                    <tr><td colSpan={3} className="text-center py-4">Sin leads recientes</td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          ))}
-        </div>
-      )}
+          </CardContent>
+        </Card>
 
-      {/* HOY */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Leads Hoy" value={stats.leadsToday} />
-        <StatCard title="Llamados Hoy" value={stats.calledToday} />
-        <StatCard title="Ventas Hoy" value={stats.salesToday} />
-        <StatCard
-          title="Cash Hoy"
-          value={`$${stats.cashToday.toLocaleString()}`}
-        />
+        {/* Resumen Rápido */}
+        <Card className="col-span-3 bg-zinc-900 border-zinc-800 text-white">
+          <CardHeader>
+            <CardTitle>Resumen de Actividad</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-between items-center p-3 bg-zinc-950/50 rounded-lg">
+              <span className="text-zinc-400">Leads Contactados</span>
+              <span className="font-bold text-white">{metrics.contactedLeads}</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-zinc-950/50 rounded-lg">
+              <span className="text-zinc-400">Próximas Citas</span>
+              <span className="font-bold text-white">{metrics.appointmentsUpcoming}</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-zinc-950/50 rounded-lg">
+              <span className="text-zinc-400">Ventas (Cerrados)</span>
+              <span className="font-bold text-green-400">{metrics.totalSales}</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      {/* GENERALES */}
-      <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-        <StatCard
-          title="Cash Total"
-          value={`$${stats.totalCash.toLocaleString()}`}
-        />
-        <StatCard
-          title="Total Vendido"
-          value={`$${stats.totalRevenue.toLocaleString()}`}
-        />
-        <StatCard title="Ganados" value={stats.closedWon} />
-        <StatCard title="Perdidos" value={stats.closedLost} />
-        <StatCard title="Conversión" value={`${conversionRate}%`} />
-      </div>
-    </div>
-  );
-};
-
-//////////////////////////////////////////////////
-// REUSABLE CARD
-//////////////////////////////////////////////////
-
-function StatCard({ title, value }: { title: string; value: any }) {
-  return (
-    <div className="card p-4">
-      <p className="text-sm text-muted-foreground">{title}</p>
-      <p className="text-xl font-bold">{value}</p>
     </div>
   );
 }
-
-export default DashboardAdmin;

@@ -1,124 +1,48 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Users, Plus } from 'lucide-react';
 
-import { getClients, getUsers, addClient } from '../../services/storage';
-import type { Client, User } from '../../types';
-
-import { Search, Users, ChevronRight, UserPlus, X, Save } from 'lucide-react';
-
-export function ClientsPage() {
-  const navigate = useNavigate();
-
-  const [clients, setClients] = useState<Client[]>(getClients());
-  const [search, setSearch] = useState('');
-  const [showForm, setShowForm] = useState(false);
-
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-
-  const psychologists = getUsers().filter(
-    (u: User) => u.role === 'psychologist'
-  );
-
-  //////////////////////////////////////////////////
-
-  const filtered = useMemo(() => {
-    return clients.filter((c) => {
-      return (
-        !search ||
-        c.fullName.toLowerCase().includes(search.toLowerCase()) ||
-        c.phone.includes(search)
-      );
-    });
-  }, [clients, search]);
-
-  //////////////////////////////////////////////////
-
-  const handleCreate = () => {
-    if (!name || !phone) return;
-
-    const psy = psychologists[0];
-
-    const newClient: Client = {
-      id: `c_${Date.now()}`,
-      fullName: name,
-      phone,
-      email,
-
-      psychologistId: psy?.id || '',
-      psychologistName: psy?.name || '',
-
-      consultationReason: '',
-
-      packageType: 'individual',
-      totalSessions: 1,
-      completedSessions: 0,
-      paymentStatus: 'pending',
-
-      rolRisk: 'green',
-
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    addClient(newClient);
-
-    setClients(getClients());
-    setShowForm(false);
-    setName('');
-    setPhone('');
-    setEmail('');
-  };
-
-  //////////////////////////////////////////////////
+export default function ClientsPage() {
+  // Datos mock (luego se conectan a Supabase tabla 'clients')
+  const clients = [
+    { id: 1, name: 'Juan Pérez', status: 'Activo', sessions: 5 },
+    { id: 2, name: 'María Gomez', status: 'En Pausa', sessions: 2 },
+    { id: 3, name: 'Carlos Ruiz', status: 'Alta', sessions: 12 },
+  ];
 
   return (
-    <div className="space-y-5">
-
-      {/* HEADER */}
-      <div className="flex justify-between">
-        <h2>Clientes</h2>
-
-        <button onClick={() => setShowForm(!showForm)}>
-          <UserPlus />
-        </button>
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-white">Base de Datos de Pacientes</h1>
+        <Button className="bg-white text-black hover:bg-zinc-200">
+          <Plus className="w-4 h-4 mr-2" /> Nuevo Paciente
+        </Button>
       </div>
 
-      {/* FORM */}
-      {showForm && (
-        <div className="card p-4 space-y-3">
-
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" />
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Teléfono" />
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-
-          <button onClick={handleCreate}>
-            <Save /> Crear
-          </button>
-        </div>
-      )}
-
-      {/* SEARCH */}
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Buscar"
-      />
-
-      {/* LIST */}
-      <div>
-        {filtered.map((c) => (
-          <div
-            key={c.id}
-            onClick={() => navigate(`/clients/${c.id}`)}
-            className="cursor-pointer"
-          >
-            {c.fullName}
-          </div>
+      <div className="grid gap-4">
+        {clients.map((client) => (
+          <Card key={client.id} className="bg-zinc-900 border-zinc-800 text-white">
+            <CardHeader className="pb-2">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-lg">{client.name}</CardTitle>
+                <span className={`text-xs px-2 py-1 rounded ${
+                  client.status === 'Activo' ? 'bg-green-900 text-green-200' : 
+                  client.status === 'En Pausa' ? 'bg-yellow-900 text-yellow-200' : 'bg-zinc-700 text-zinc-300'
+                }`}>
+                  {client.status}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-zinc-400">Sesiones completadas: {client.sessions}</p>
+              <div className="mt-2 flex gap-2">
+                <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:text-white">Ver Historia</Button>
+                <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:text-white">Agendar Cita</Button>
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
-
     </div>
   );
 }

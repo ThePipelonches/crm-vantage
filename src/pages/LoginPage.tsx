@@ -1,161 +1,249 @@
 import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { Eye, EyeOff, Shield } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Label } from '../components/ui/label';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { Loader2, Lock, Mail, User } from 'lucide-react';
 
-export function LoginPage() {
-  const { login } = useAuth();
+export default function LoginPage() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  // Estados Login
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Estados Registro
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regRole, setRegRole] = useState<'setter' | 'closer' | 'admin'>('setter');
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
+    setError(null);
+    setLoading(true);
 
-    setTimeout(() => {
-      const success = login(email, password);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
 
-      if (!success) {
-        setError('Credenciales incorrectas. Intente de nuevo.');
+      if (error) throw error;
+
+      if (data.user) {
+        navigate('/');
       }
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      setIsLoading(false);
-    }, 400);
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      // CORRECCIÓN: Sintaxis correcta para metadata en Supabase
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: regEmail,
+        password: regPassword,
+        options: {
+          data: {
+            full_name: regName,
+            role: regRole,
+          },
+        },
+      });
+
+      if (signUpError) throw signUpError;
+
+      if (data.user) {
+        // Intentar login automático
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: regEmail,
+          password: regPassword,
+        });
+
+        if (!signInError) {
+          navigate('/');
+          return;
+        } else {
+          setError('Cuenta creada. Verifica tu correo para activar la cuenta.');
+          setActiveTab('login');
+          setLoginEmail(regEmail);
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error al crear cuenta.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center relative overflow-hidden">
-      
-      {/* BACKGROUND */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative z-10 w-full max-w-md px-6">
+    // FONDO NEGRO PURO
+    <div className="min-h-screen flex items-center justify-center bg-black p-4">
+      <Card className="w-full max-w-md shadow-lg bg-zinc-900 border-zinc-800 text-white">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold tracking-tight text-white">Vantage CRM</CardTitle>
+          <CardDescription className="text-zinc-400">
+            Gestiona tus leads y clientes eficientemente
+          </CardDescription>
+        </CardHeader>
         
-        {/* LOGO */}
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-              <span className="text-black font-bold text-lg">V</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight">Vantage</h1>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                Executive Wellness
-              </p>
-            </div>
-          </div>
-        </div>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4 bg-zinc-800 text-white">
+            <TabsTrigger value="login" className="data-[state=active]:bg-white data-[state=active]:text-black">Iniciar Sesión</TabsTrigger>
+            <TabsTrigger value="register" className="data-[state=active]:bg-white data-[state=active]:text-black">Crear Cuenta</TabsTrigger>
+          </TabsList>
 
-        {/* CARD */}
-        <div className="card-surface rounded-xl p-8">
-          
-          <div className="flex items-center gap-2 mb-6">
-            <Shield className="w-4 h-4 text-cyan-400" />
-            <h2 className="text-sm font-medium text-white/90">
-              Acceso Seguro
-            </h2>
-          </div>
+          {/* FORMULARIO LOGIN */}
+          <TabsContent value="login">
+            <form onSubmit={handleLogin}>
+              <CardContent className="space-y-4">
+                {error && activeTab === 'login' && (
+                  <Alert variant="destructive" className="bg-red-900/50 border-red-900 text-red-200">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="login-email" className="text-zinc-300">Correo Electrónico</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="nombre@empresa.com"
+                      className="pl-10 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-white focus:ring-white/20"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      required
+                      autoComplete="username"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="login-password" className="text-zinc-300">Contraseña</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+                    <Input
+                      id="login-password"
+                      type="password"
+                      placeholder="••••••••"
+                      className="pl-10 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-white focus:ring-white/20"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      required
+                      autoComplete="current-password"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" className="w-full bg-white text-black hover:bg-zinc-200" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Ingresar
+                </Button>
+              </CardFooter>
+            </form>
+          </TabsContent>
 
-          {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            
-            {/* EMAIL */}
-            <div>
-              <label className="block text-xs text-muted-foreground mb-1.5">
-                Correo electrónico
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-400/50"
-                placeholder="usuario@metodovantage.com"
-                required
-              />
-            </div>
-
-            {/* PASSWORD */}
-            <div>
-              <label className="block text-xs text-muted-foreground mb-1.5">
-                Contraseña
-              </label>
-
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white pr-10 focus:outline-none focus:border-cyan-400/50"
-                  placeholder="••••••••"
-                  required
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* SUBMIT */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-medium py-2.5 rounded-lg hover:opacity-90 disabled:opacity-50 text-sm"
-            >
-              {isLoading ? 'Ingresando...' : 'Ingresar'}
-            </button>
-          </form>
-
-          {/* QUICK LOGIN */}
-          <div className="mt-6 pt-4 border-t border-white/10">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-3">
-              Usuarios de acceso
-            </p>
-
-            <div className="space-y-1.5">
-              {[
-                { label: 'Setter', email: 'setter@metodovantage.com' },
-                { label: 'Closer', email: 'isabel@metodovantage.com' },
-                { label: 'Psicólogo', email: 'christian@metodovantage.com' },
-                { label: 'Admin', email: 'andresclinicapsicologica@gmail.com' },
-              ].map((u) => (
-                <button
-                  key={u.email}
-                  onClick={() => {
-                    setEmail(u.email);
-                    setPassword('1234');
-                  }}
-                  className="w-full text-left p-2.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-xs"
-                >
-                  <strong>{u.label}</strong>
-                  <div className="text-muted-foreground">{u.email}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-        </div>
-      </div>
+          {/* FORMULARIO REGISTRO */}
+          <TabsContent value="register">
+            <form onSubmit={handleRegister}>
+              <CardContent className="space-y-4">
+                {error && activeTab === 'register' && (
+                  <Alert variant="destructive" className="bg-red-900/50 border-red-900 text-red-200">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="reg-name" className="text-zinc-300">Nombre Completo</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+                    <Input
+                      id="reg-name"
+                      type="text"
+                      placeholder="Juan Pérez"
+                      className="pl-10 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-white focus:ring-white/20"
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reg-email" className="text-zinc-300">Correo Electrónico</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+                    <Input
+                      id="reg-email"
+                      type="email"
+                      placeholder="nombre@empresa.com"
+                      className="pl-10 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-white focus:ring-white/20"
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                      required
+                      autoComplete="username"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reg-password" className="text-zinc-300">Contraseña</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+                    <Input
+                      id="reg-password"
+                      type="password"
+                      placeholder="Mínimo 6 caracteres"
+                      className="pl-10 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-white focus:ring-white/20"
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="reg-role" className="text-zinc-300">Rol Inicial</Label>
+                  <select
+                    id="reg-role"
+                    className="flex h-10 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-white ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={regRole}
+                    onChange={(e) => setRegRole(e.target.value as any)}
+                  >
+                    <option value="setter">Setter</option>
+                    <option value="closer">Closer</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                  <p className="text-xs text-zinc-500">
+                    * Si es tu primera vez, selecciona "Administrador".
+                  </p>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" className="w-full bg-white text-black hover:bg-zinc-200" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Crear Cuenta
+                </Button>
+              </CardFooter>
+            </form>
+          </TabsContent>
+        </Tabs>
+      </Card>
     </div>
   );
 }

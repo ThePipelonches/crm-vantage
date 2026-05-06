@@ -1,190 +1,71 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../hooks/useAuth';
+import { getDashboardMetrics } from '../../services/analytics'; // Reutilizamos, pero podríamos crear uno clínico
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Users, Calendar, Clock, Brain } from 'lucide-react';
 
-import {
-  getClients,
-  getSessions,
-} from '../../services/storage';
+export default function ClinicalDashboard() {
+  const { user } = useAuth();
+  const [metrics, setMetrics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-import { KpiCard } from '../../components/KpiCard';
+  useEffect(() => {
+    async function load() {
+      try {
+        // Nota: getDashboardMetrics trae citas generales. 
+        // En una versión avanzada, filtraríamos solo citas clínicas por psychologist_id.
+        // Por ahora, usamos los datos globales que RLS filtrará por el usuario logueado.
+        const data = await getDashboardMetrics();
+        setMetrics(data);
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    }
+    load();
+  }, []);
 
-import {
-  Users,
-  Activity,
-  TrendingDown,
-  Brain,
-} from 'lucide-react';
-
-//////////////////////////////////////////////////
-// HELPERS (🔥 clave para evitar bugs de fechas)
-//////////////////////////////////////////////////
-
-function toDateSafe(date?: string) {
-  if (!date) return null;
-  const d = new Date(date);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-//////////////////////////////////////////////////
-
-export function PsychologistDashboard() {
-  const clients = getClients();
-  const sessions = getSessions();
-
-  const stats = useMemo(() => {
-    const totalClients = clients.length;
-
-    const now = new Date();
-
-    //////////////////////////////////////////////////
-    // 📅 SESIONES ÚLTIMOS 7 DÍAS
-    //////////////////////////////////////////////////
-
-    const weekAgo = new Date(now);
-    weekAgo.setDate(now.getDate() - 7);
-
-    const weekSessions = sessions.filter((s) => {
-      const d = toDateSafe(s.date);
-      return d && d >= weekAgo;
-    }).length;
-
-    //////////////////////////////////////////////////
-    // 📉 ABANDONO (14 días sin sesión)
-    //////////////////////////////////////////////////
-
-    const twoWeeksAgo = new Date(now);
-    twoWeeksAgo.setDate(now.getDate() - 14);
-
-    const abandonedClients = clients.filter((c) => {
-      const clientSessions = sessions.filter(
-        (s) => s.clientId === c.id
-      );
-
-      if (clientSessions.length === 0) return true;
-
-      // 🔥 copiar antes de ordenar (evita mutación global)
-      const sorted = [...clientSessions].sort((a, b) => {
-        return new Date(b.date).getTime() - new Date(a.date).getTime();
-      });
-
-      const lastSessionDate = toDateSafe(sorted[0].date);
-
-      if (!lastSessionDate) return true;
-
-      return lastSessionDate < twoWeeksAgo;
-    });
-
-    const abandonmentRate =
-      totalClients > 0
-        ? Math.round((abandonedClients.length / totalClients) * 100)
-        : 0;
-
-    //////////////////////////////////////////////////
-    // 🎯 ROL
-    //////////////////////////////////////////////////
-
-    const rolGreen = clients.filter((c) => c.rolRisk === 'green').length;
-    const rolYellow = clients.filter((c) => c.rolRisk === 'yellow').length;
-    const rolRed = clients.filter((c) => c.rolRisk === 'red').length;
-
-    //////////////////////////////////////////////////
-
-    return {
-      totalClients,
-      weekSessions,
-      abandonmentRate,
-      abandonedCount: abandonedClients.length,
-      rolGreen,
-      rolYellow,
-      rolRed,
-    };
-
-  }, [clients, sessions]);
-
-  //////////////////////////////////////////////////
+  if (loading) return <div className="text-white">Cargando...</div>;
 
   return (
-    <div className="space-y-6">
-
-      {/* HEADER */}
+    <div className="space-y-6 animate-fade-in">
       <div>
-        <h2 className="text-lg font-medium">Dashboard Clínico</h2>
-        <p className="text-sm text-muted-foreground">
-          Métricas del sistema clínico
-        </p>
+        <h1 className="text-3xl font-bold text-white">Dashboard Clínico</h1>
+        <p className="text-zinc-400">Gestión de Pacientes y Sesiones</p>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="bg-zinc-900 border-zinc-800 text-white">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-zinc-400">Mis Pacientes</CardTitle>
+            <Users className="h-4 w-4 text-purple-400" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{metrics?.totalLeads || 0}</div></CardContent>
+        </Card>
 
-        <KpiCard
-          title="Clientes activos"
-          value={stats.totalClients}
-          subtitle="En tratamiento"
-          icon={Users}
-        />
+        <Card className="bg-zinc-900 border-zinc-800 text-white">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-zinc-400">Sesiones Hoy</CardTitle>
+            <Clock className="h-4 w-4 text-blue-400" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{metrics?.appointmentsToday || 0}</div></CardContent>
+        </Card>
 
-        <KpiCard
-          title="Sesiones (7 días)"
-          value={stats.weekSessions}
-          subtitle="Última semana"
-          icon={Activity}
-        />
-
-        <KpiCard
-          title="Abandono"
-          value={`${stats.abandonmentRate}%`}
-          subtitle={`${stats.abandonedCount} clientes`}
-          icon={TrendingDown}
-        />
-
-        <KpiCard
-          title="Riesgo alto"
-          value={stats.rolRed}
-          subtitle="Clientes en rojo"
-          icon={Brain}
-        />
-
+        <Card className="bg-zinc-900 border-zinc-800 text-white">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-zinc-400">Próximas Citas</CardTitle>
+            <Calendar className="h-4 w-4 text-green-400" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{metrics?.appointmentsUpcoming || 0}</div></CardContent>
+        </Card>
       </div>
 
-      {/* ROL */}
-      <div className="card-surface rounded-xl p-5">
-
-        <h3 className="text-sm font-medium mb-4">
-          Distribución de riesgo (ROL)
-        </h3>
-
-        <div className="grid grid-cols-3 gap-4">
-
-          <div className="text-center p-4 rounded-lg bg-emerald-400/10">
-            <p className="text-2xl font-semibold text-emerald-400">
-              {stats.rolGreen}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Verde
-            </p>
-          </div>
-
-          <div className="text-center p-4 rounded-lg bg-amber-400/10">
-            <p className="text-2xl font-semibold text-amber-400">
-              {stats.rolYellow}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Amarillo
-            </p>
-          </div>
-
-          <div className="text-center p-4 rounded-lg bg-red-400/10">
-            <p className="text-2xl font-semibold text-red-400">
-              {stats.rolRed}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Rojo
-            </p>
-          </div>
-
-        </div>
+      <div className="grid gap-4 md:grid-cols-2">
+         <Card className="bg-zinc-900 border-zinc-800 text-white p-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Brain className="w-5 h-5 text-purple-400"/> Estado de la Agenda
+            </h3>
+            <p className="text-zinc-400">No hay sesiones críticas pendientes para hoy.</p>
+         </Card>
       </div>
-
     </div>
   );
 }

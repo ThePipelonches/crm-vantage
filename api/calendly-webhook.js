@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
     // Verificar duplicados
-    const { data: existingLead, error: fetchError } = await supabaseClient
+    const {  existingLead, error: fetchError } = await supabaseClient
       .from('leads')
       .select('id')
       .eq('email', email)

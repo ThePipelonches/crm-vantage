@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Intenta leer con prefijo VITE_ primero, si no, intenta con NEXT_PUBLIC_ (para compatibilidad Vercel)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Debug: Esto te permitirá ver en la consola del navegador si las variables cargan
 console.log('Supabase URL:', supabaseUrl); 
 console.log('Supabase Key presente:', !!supabaseAnonKey); 
 

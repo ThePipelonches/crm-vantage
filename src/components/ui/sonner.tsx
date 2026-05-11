@@ -8,7 +8,7 @@ import {
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  // Forzamos el tema 'dark' ya que no estamos usando next-themes en este proyecto Vite
+  // Forzamos el tema 'dark' manualmente para evitar dependencias de next-themes
   const theme = "dark"
 
   return (

@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { 
   UserPlus, Clock, CheckCircle, Stethoscope, AlertCircle, 
-  Calendar, RefreshCw
+  Search, Filter, Calendar, DollarSign, Users, RefreshCw
 } from 'lucide-react';
 import {
   Select,
@@ -57,10 +57,9 @@ export default function PatientsPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    console.log("🔄 Cargando pacientes...");
+    console.log("Cargando pacientes para rol:", user?.role);
     
     try {
-      // 1. Cargar Pacientes
       let query = supabase.from('patients').select('*').order('created_at', { ascending: false });
       
       if (user?.role === 'psychologist') {
@@ -70,13 +69,13 @@ export default function PatientsPage() {
       const { data: pData, error: pErr } = await query;
       
       if (pErr) {
-        console.error("❌ Error cargando pacientes:", pErr);
+        console.error("ERROR RLS/DB:", pErr);
+        alert("Error cargando pacientes: " + pErr.message);
       } else {
-        console.log("✅ Pacientes cargados:", pData?.length);
+        console.log("Pacientes cargados:", pData?.length);
         setPatients(pData || []);
       }
 
-      // 2. Cargar Psicólogos (Solo Admin)
       if (user?.role === 'admin') {
         const { data: profiles, error: profErr } = await supabase
           .from('profiles')
@@ -94,14 +93,13 @@ export default function PatientsPage() {
     }
   };
 
-  // Cargar solo al montar el componente (NO hay setInterval)
   useEffect(() => {
     fetchData();
   }, [user?.role]);
 
   const handleAssignPsychologist = async () => {
     if (!selectedPatientId || !selectedPsychId) {
-      alert("Selecciona un psicólogo");
+      alert("Selecciona un psicologo");
       return;
     }
     setIsAssigning(true);
@@ -117,12 +115,12 @@ export default function PatientsPage() {
 
       if (updateErr) throw updateErr;
 
-      alert('✅ Paciente asignado correctamente.');
+      alert('Paciente asignado correctamente.');
       setSelectedPatientId(null);
       setSelectedPsychId('');
-      fetchData(); // Recargar solo tras acción exitosa
+      fetchData();
     } catch (err: any) {
-      alert('❌ Error al asignar: ' + err.message);
+      alert('Error al asignar: ' + err.message);
     } finally {
       setIsAssigning(false);
     }
@@ -135,17 +133,16 @@ export default function PatientsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
-      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white flex items-center gap-3">
             <UserPlus className="w-8 h-8 text-blue-500" />
-            Gestión de Pacientes
+            Gestion de Pacientes
           </h1>
           <p className="text-zinc-400 mt-2">
             {user?.role === 'admin' 
-              ? "Asigna psicólogos a los nuevos pacientes provenientes de ventas." 
-              : "Lista de tus pacientes asignados para seguimiento clínico."}
+              ? "Asigna psicologos a los nuevos pacientes provenientes de ventas." 
+              : "Lista de tus pacientes asignados para seguimiento clinico."}
           </p>
         </div>
         
@@ -162,9 +159,8 @@ export default function PatientsPage() {
              </Badge>
             </>
           )}
-          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading} className="border-zinc-700 text-zinc-300 hover:text-white">
-            <RefreshCw className={w-4 h-4 mr-2 } />
-            Refrescar
+          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading} className="border-zinc-700 text-zinc-300 ml-2">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
@@ -177,12 +173,17 @@ export default function PatientsPage() {
         <div className="text-center py-20 bg-zinc-900/50 rounded-xl border border-dashed border-zinc-800">
           <UserPlus className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-zinc-300">No hay pacientes</h3>
-          <p className="text-zinc-500">Los pacientes aparecerán aquí cuando un lead sea cerrado exitosamente.</p>
+          <p className="text-zinc-500">Los pacientes apareceran aqui cuando un lead sea cerrado exitosamente.</p>
+          {user?.role === 'admin' && (
+            <Button variant="link" onClick={fetchData} className="mt-4 text-blue-400">
+              Recargar datos
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {patients.map((patient) => (
-            <Card key={patient.id} className={g-zinc-900 border-zinc-800 transition-all hover:shadow-lg }>
+            <Card key={patient.id} className={`bg-zinc-900 border-zinc-800 transition-all hover:shadow-lg ${patient.status === 'pending_assignment' ? 'border-l-4 border-l-yellow-500' : 'border-l-4 border-l-green-500'}`}>
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
@@ -201,20 +202,19 @@ export default function PatientsPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Info de Venta */}
                 <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-800 text-xs space-y-1">
                   <div className="flex justify-between text-zinc-400">
                     <span>Valor Plan:</span>
-                    <span className="text-white font-mono"></span>
+                    <span className="text-white font-mono">${patient.sale_total?.toLocaleString() || '0'}</span>
                   </div>
                   <div className="flex justify-between text-zinc-400">
                     <span>Pago Inicial:</span>
-                    <span className="text-green-400 font-mono"></span>
+                    <span className="text-green-400 font-mono">${patient.cash_collected?.toLocaleString() || '0'}</span>
                   </div>
                   {patient.installments_count && patient.installments_count > 0 && (
                      <div className="flex justify-between text-zinc-400 pt-1 border-t border-zinc-800 mt-1">
                         <span>Cuotas:</span>
-                        <span className="text-zinc-300">{patient.installments_count} x </span>
+                        <span className="text-zinc-300">{patient.installments_count} x ${patient.installment_value?.toLocaleString()}</span>
                      </div>
                   )}
                 </div>
@@ -225,7 +225,6 @@ export default function PatientsPage() {
                   </div>
                 )}
 
-                {/* Acciones para Admin */}
                 {user?.role === 'admin' && patient.status === 'pending_assignment' && (
                   <div className="pt-2">
                     <Button 
@@ -234,7 +233,7 @@ export default function PatientsPage() {
                       size="sm"
                     >
                       <Stethoscope className="w-4 h-4 mr-2" />
-                      Asignar Psicólogo
+                      Asignar Psicologo
                     </Button>
                   </div>
                 )}
@@ -242,7 +241,7 @@ export default function PatientsPage() {
                 {patient.status === 'active' && (
                   <div className="pt-2 flex items-center gap-2 text-sm text-green-400 bg-green-900/10 p-2 rounded border border-green-900/30">
                     <Stethoscope className="w-4 h-4" />
-                    <span>Psicólogo Asignado</span>
+                    <span>Psicologo Asignado</span>
                   </div>
                 )}
                 
@@ -256,26 +255,25 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* Modal de Asignación */}
       <Dialog open={!!selectedPatientId} onOpenChange={(open) => !open && setSelectedPatientId(null)}>
         <DialogContent className="bg-zinc-900 border-zinc-800 text-white sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-blue-500" />
-              Asignar Psicólogo
+              Asignar Psicologo
             </DialogTitle>
           </DialogHeader>
           
           <div className="py-4 space-y-4">
             <p className="text-sm text-zinc-400">
-              Selecciona un psicólogo para atender a este paciente.
+              Selecciona un psicologo para atender a este paciente.
             </p>
             
             <div className="space-y-2">
               <Label htmlFor="psych-select">Profesional</Label>
               <Select value={selectedPsychId} onValueChange={setSelectedPsychId}>
                 <SelectTrigger id="psych-select" className="bg-zinc-950 border-zinc-800 text-white">
-                  <SelectValue placeholder="Seleccionar psicólogo..." />
+                  <SelectValue placeholder="Seleccionar psicologo..." />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
                   {psychologists.length > 0 ? (
@@ -285,7 +283,7 @@ export default function PatientsPage() {
                       </SelectItem>
                     ))
                   ) : (
-                    <div className="p-2 text-xs text-zinc-500">No hay psicólogos registrados</div>
+                    <div className="p-2 text-xs text-zinc-500">No hay psicologos registrados</div>
                   )}
                 </SelectContent>
               </Select>
@@ -301,7 +299,7 @@ export default function PatientsPage() {
               disabled={!selectedPsychId || isAssigning}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {isAssigning ? 'Asignando...' : 'Confirmar Asignación'}
+              {isAssigning ? 'Asignando...' : 'Confirmar Asignacion'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -5,7 +5,6 @@ import { AppLayout } from './layouts/AppLayout';
 
 // Admin & General
 import Dashboard from './pages/admin/Dashboard';
-import LeadsPage from './pages/admin/Leads';
 
 // Commercial
 import CommercialDashboard from './pages/commercial/Dashboard';
@@ -47,7 +46,7 @@ function AppRoutes() {
           path="leads" 
           element={
             <RoleProtectedRoute allowedRoles={['admin', 'closer']}>
-              <LeadsPage />
+              <Dashboard />
             </RoleProtectedRoute>
           } 
         />
@@ -118,3 +117,5 @@ export default function App() {
     </AuthProvider>
   );
 }
+
+

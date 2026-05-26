@@ -20,7 +20,6 @@ export function Sidebar() {
   if (!user) return null;
 
   const isAdmin = user.role === 'admin';
-  const isSetter = user.role === 'setter';
   const isCloser = user.role === 'closer';
   const isPsychologist = user.role === 'psychologist';
 
@@ -30,21 +29,17 @@ export function Sidebar() {
     menuItems = [
       // Quitamos Dashboard General. El admin empieza en Comercial o Panel Admin.
       { label: 'Panel Admin', path: '/admin-panel', icon: ShieldCheck }, 
-      { label: 'Leads (Todos)', path: '/leads', icon: ClipboardList },
       { label: 'Dashboard Comercial', path: '/commercial', icon: DollarSign },
       { label: 'Citas Comerciales', path: '/appointments', icon: CalendarDays },
       { label: 'Dashboard ClÃ­nico', path: '/clinical', icon: Brain },
       { label: 'Pacientes', path: '/clients', icon: Users },
       { label: 'Citas ClÃ­nicas', path: '/clinical-appointments', icon: CalendarDays },
     ];
-  } else if (isSetter) {
     menuItems = [
-      { label: 'Mis Leads', path: '/leads', icon: ClipboardList },
     ];
   } else if (isCloser) {
     menuItems = [
       { label: 'Dashboard Comercial', path: '/commercial', icon: DollarSign },
-      { label: 'Mis Leads', path: '/leads', icon: ClipboardList },
       { label: 'Mis Citas', path: '/appointments', icon: CalendarDays },
     ];
   } else if (isPsychologist) {
@@ -97,3 +92,4 @@ export function Sidebar() {
     </aside>
   );
 }
+

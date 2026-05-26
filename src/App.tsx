@@ -16,7 +16,6 @@ import CommercialAppointments from './pages/commercial/appointments';
 
 // Psychologist
 import ClinicalDashboard from './pages/psychologist/Dashboard';
-import ClientsPage from './pages/psychologist/Clients';
 import ClinicalAppointments from './pages/psychologist/ClinicalAppointments';
 
 const LoadingScreen = () => (

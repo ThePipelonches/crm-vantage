@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { 
-  UserPlus, Clock, CheckCircle, Stethoscope, AlertCircle, 
-  Search, Filter, Calendar, DollarSign, Users, RefreshCw
+  UserPlus, Clock, CheckCircle, Stethoscope, ArrowLeft, RefreshCw, 
+  Calendar, DollarSign 
 } from 'lucide-react';
 import {
   Select,
@@ -23,6 +24,7 @@ import {
   DialogFooter,
 } from "../../components/ui/dialog";
 import { Label } from '../../components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 
 interface Patient {
   id: string;
@@ -47,9 +49,11 @@ interface Psychologist {
 
 export default function PatientsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [psychologists, setPsychologists] = useState<Psychologist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'pending' | 'active'>('pending');
   
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [selectedPsychId, setSelectedPsychId] = useState<string>('');
@@ -57,37 +61,31 @@ export default function PatientsPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    console.log("Cargando pacientes para rol:", user?.role);
-    
     try {
       let query = supabase.from('patients').select('*').order('created_at', { ascending: false });
       
+      // Si es psicólogo, solo ve los suyos (independientemente de la pestaña)
       if (user?.role === 'psychologist') {
         query = query.eq('psychologist_id', user.id);
       }
       
       const { data: pData, error: pErr } = await query;
       
-      if (pErr) {
-        console.error("ERROR RLS/DB:", pErr);
-        alert("Error cargando pacientes: " + pErr.message);
-      } else {
-        console.log("Pacientes cargados:", pData?.length);
-        setPatients(pData || []);
-      }
-
+      if (pErr) throw pErr;
+      setPatients(pData || []);
+      
+      // Cargar psicólogos solo si es admin
       if (user?.role === 'admin') {
         const { data: profiles, error: profErr } = await supabase
           .from('profiles')
           .select('id, full_name, email')
           .eq('role', 'psychologist');
         
-        if (!profErr && profiles) {
-          setPsychologists(profiles);
-        }
+        if (!profErr && profiles) setPsychologists(profiles);
       }
     } catch (err: any) {
-      console.error("Error general:", err);
+      console.error("Error cargando pacientes:", err);
+      alert("Error al cargar datos: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -95,211 +93,188 @@ export default function PatientsPage() {
 
   useEffect(() => {
     fetchData();
+    // Sin setInterval para evitar parpadeos. Solo carga inicial y tras acciones.
   }, [user?.role]);
 
   const handleAssignPsychologist = async () => {
     if (!selectedPatientId || !selectedPsychId) {
-      alert("Selecciona un psicologo");
+      alert("Selecciona un psicólogo");
       return;
     }
     setIsAssigning(true);
-
     try {
-      const { error: updateErr } = await supabase
+      const { error } = await supabase
         .from('patients')
-        .update({ 
-          psychologist_id: selectedPsychId, 
-          status: 'active' 
-        })
+        .update({ psychologist_id: selectedPsychId, status: 'active' })
         .eq('id', selectedPatientId);
 
-      if (updateErr) throw updateErr;
+      if (error) throw error;
 
-      alert('Paciente asignado correctamente.');
+      alert('✅ Paciente asignado correctamente.');
       setSelectedPatientId(null);
       setSelectedPsychId('');
-      fetchData();
+      fetchData(); // Recargar manualmente tras éxito
     } catch (err: any) {
-      alert('Error al asignar: ' + err.message);
+      alert('❌ Error: ' + err.message);
     } finally {
       setIsAssigning(false);
     }
   };
 
-  const openAssignModal = (patientId: string) => {
-    setSelectedPatientId(patientId);
-    setSelectedPsychId('');
-  };
+  const pendingPatients = patients.filter(p => p.status === 'pending_assignment');
+  const activePatients = patients.filter(p => p.status === 'active');
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <UserPlus className="w-8 h-8 text-blue-500" />
-            Gestion de Pacientes
-          </h1>
-          <p className="text-zinc-400 mt-2">
-            {user?.role === 'admin' 
-              ? "Asigna psicologos a los nuevos pacientes provenientes de ventas." 
-              : "Lista de tus pacientes asignados para seguimiento clinico."}
-          </p>
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Header con Navegación */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-800 pb-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => navigate('/')} className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+            <ArrowLeft className="w-5 h-5 mr-2" /> Volver
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-white">Gestión de Pacientes</h1>
+            <p className="text-zinc-400 text-sm mt-1">
+              Administra asignaciones y seguimientos clínicos.
+            </p>
+          </div>
         </div>
         
-        <div className="flex gap-2 items-center">
-          {user?.role === 'admin' && (
-            <>
-             <Badge variant="outline" className="bg-yellow-900/20 text-yellow-500 border-yellow-800 px-4 py-2">
-                <Clock className="w-4 h-4 mr-2" />
-                Pendientes: {patients.filter(p => p.status === 'pending_assignment').length}
-             </Badge>
-             <Badge variant="outline" className="bg-green-900/20 text-green-500 border-green-800 px-4 py-2">
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Activos: {patients.filter(p => p.status === 'active').length}
-             </Badge>
-            </>
-          )}
-          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading} className="border-zinc-700 text-zinc-300 ml-2">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refrescar
           </Button>
         </div>
       </div>
 
       {loading && patients.length === 0 ? (
         <div className="flex justify-center items-center h-64 text-zinc-500">
-          <Clock className="w-8 h-8 animate-spin mr-2" /> Cargando pacientes...
-        </div>
-      ) : patients.length === 0 ? (
-        <div className="text-center py-20 bg-zinc-900/50 rounded-xl border border-dashed border-zinc-800">
-          <UserPlus className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-zinc-300">No hay pacientes</h3>
-          <p className="text-zinc-500">Los pacientes apareceran aqui cuando un lead sea cerrado exitosamente.</p>
-          {user?.role === 'admin' && (
-            <Button variant="link" onClick={fetchData} className="mt-4 text-blue-400">
-              Recargar datos
-            </Button>
-          )}
+          <Clock className="w-8 h-8 animate-spin mr-2" /> Cargando...
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {patients.map((patient) => (
-            <Card key={patient.id} className={`bg-zinc-900 border-zinc-800 transition-all hover:shadow-lg ${patient.status === 'pending_assignment' ? 'border-l-4 border-l-yellow-500' : 'border-l-4 border-l-green-500'}`}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-white text-lg">{patient.full_name}</CardTitle>
-                    <CardDescription className="text-zinc-400">{patient.email}</CardDescription>
-                  </div>
-                  {patient.status === 'pending_assignment' ? (
-                    <Badge className="bg-yellow-900/50 text-yellow-400 hover:bg-yellow-900/50 border-yellow-700">
-                      <Clock className="w-3 h-3 mr-1" /> Pendiente
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-green-900/50 text-green-400 hover:bg-green-900/50 border-green-700">
-                      <CheckCircle className="w-3 h-3 mr-1" /> Activo
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-800 text-xs space-y-1">
-                  <div className="flex justify-between text-zinc-400">
-                    <span>Valor Plan:</span>
-                    <span className="text-white font-mono">${patient.sale_total?.toLocaleString() || '0'}</span>
-                  </div>
-                  <div className="flex justify-between text-zinc-400">
-                    <span>Pago Inicial:</span>
-                    <span className="text-green-400 font-mono">${patient.cash_collected?.toLocaleString() || '0'}</span>
-                  </div>
-                  {patient.installments_count && patient.installments_count > 0 && (
-                     <div className="flex justify-between text-zinc-400 pt-1 border-t border-zinc-800 mt-1">
-                        <span>Cuotas:</span>
-                        <span className="text-zinc-300">{patient.installments_count} x ${patient.installment_value?.toLocaleString()}</span>
-                     </div>
-                  )}
-                </div>
+        <>
+          {/* Pestañas de Navegación */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-zinc-900 border border-zinc-800">
+              <TabsTrigger value="pending" className="data-[state=active]:bg-yellow-900/20 data-[state=active]:text-yellow-500">
+                <Clock className="w-4 h-4 mr-2" /> Pendientes ({pendingPatients.length})
+              </TabsTrigger>
+              <TabsTrigger value="active" className="data-[state=active]:bg-green-900/20 data-[state=active]:text-green-500">
+                <CheckCircle className="w-4 h-4 mr-2" /> Activos ({activePatients.length})
+              </TabsTrigger>
+            </TabsList>
 
-                {patient.notes && (
-                  <div className="text-xs text-zinc-500 italic line-clamp-2">
-                    "{patient.notes}"
-                  </div>
-                )}
-
-                {user?.role === 'admin' && patient.status === 'pending_assignment' && (
-                  <div className="pt-2">
-                    <Button 
-                      onClick={() => openAssignModal(patient.id)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                      size="sm"
-                    >
-                      <Stethoscope className="w-4 h-4 mr-2" />
-                      Asignar Psicologo
-                    </Button>
-                  </div>
-                )}
-
-                {patient.status === 'active' && (
-                  <div className="pt-2 flex items-center gap-2 text-sm text-green-400 bg-green-900/10 p-2 rounded border border-green-900/30">
-                    <Stethoscope className="w-4 h-4" />
-                    <span>Psicologo Asignado</span>
-                  </div>
-                )}
-                
-                <div className="text-xs text-zinc-600 flex items-center gap-1 pt-2 border-t border-zinc-800">
-                  <Calendar className="w-3 h-3" />
-                  Creado: {new Date(patient.created_at).toLocaleDateString()}
+            {/* Contenido Pendientes */}
+            <TabsContent value="pending" className="mt-6">
+              {user?.role === 'admin' && pendingPatients.length === 0 ? (
+                <div className="text-center py-20 bg-zinc-900/50 rounded-xl border border-dashed border-zinc-800">
+                  <UserPlus className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-zinc-300">No hay pacientes pendientes</h3>
+                  <p className="text-zinc-500">Los leads cerrados aparecerán aquí para asignar psicólogo.</p>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              ) : pendingPatients.length === 0 && user?.role !== 'admin' ? (
+                 <div className="text-center py-20 text-zinc-500">No tienes pacientes pendientes.</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {pendingPatients.map((patient) => (
+                    <Card key={patient.id} className="bg-zinc-900 border-zinc-800 border-l-4 border-l-yellow-500 hover:shadow-lg transition-all">
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-white text-lg">{patient.full_name}</CardTitle>
+                            <CardDescription className="text-zinc-400">{patient.email}</CardDescription>
+                          </div>
+                          <Badge className="bg-yellow-900/50 text-yellow-400 border-yellow-700">Pendiente</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-800 text-xs space-y-1">
+                          <div className="flex justify-between"><span>Valor Plan:</span><span className="text-white font-mono">${patient.sale_total?.toLocaleString() || '0'}</span></div>
+                          <div className="flex justify-between"><span>Pago Inicial:</span><span className="text-green-400 font-mono">${patient.cash_collected?.toLocaleString() || '0'}</span></div>
+                        </div>
+                        {user?.role === 'admin' && (
+                          <Button onClick={() => { setSelectedPatientId(patient.id); setSelectedPsychId(''); }} className="w-full bg-blue-600 hover:bg-blue-700 text-white" size="sm">
+                            <Stethoscope className="w-4 h-4 mr-2" /> Asignar Psicólogo
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Contenido Activos */}
+            <TabsContent value="active" className="mt-6">
+              {activePatients.length === 0 ? (
+                <div className="text-center py-20 text-zinc-500">No hay pacientes activos aún.</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {activePatients.map((patient) => (
+                    <Card key={patient.id} className="bg-zinc-900 border-zinc-800 border-l-4 border-l-green-500 hover:shadow-lg transition-all">
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-white text-lg">{patient.full_name}</CardTitle>
+                            <CardDescription className="text-zinc-400">{patient.email}</CardDescription>
+                          </div>
+                          <Badge className="bg-green-900/50 text-green-400 border-green-700">Activo</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                         <div className="flex items-center gap-2 text-sm text-green-400 bg-green-900/10 p-2 rounded border border-green-900/30">
+                            <Stethoscope className="w-4 h-4" />
+                            <span>Psicólogo Asignado</span>
+                         </div>
+                         <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-800 text-xs space-y-1">
+                            <div className="flex justify-between"><span>Valor Plan:</span><span className="text-white font-mono">${patient.sale_total?.toLocaleString() || '0'}</span></div>
+                            {patient.installments_count > 0 && (
+                              <div className="flex justify-between pt-1 border-t border-zinc-800"><span>Cuotas:</span><span className="text-zinc-300">{patient.installments_count} x ${patient.installment_value?.toLocaleString()}</span></div>
+                            )}
+                         </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </>
       )}
 
+      {/* Modal de Asignación */}
       <Dialog open={!!selectedPatientId} onOpenChange={(open) => !open && setSelectedPatientId(null)}>
         <DialogContent className="bg-zinc-900 border-zinc-800 text-white sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-blue-500" />
-              Asignar Psicologo
+              Asignar Psicólogo
             </DialogTitle>
           </DialogHeader>
-          
           <div className="py-4 space-y-4">
-            <p className="text-sm text-zinc-400">
-              Selecciona un psicologo para atender a este paciente.
-            </p>
-            
+            <p className="text-sm text-zinc-400">Selecciona un profesional para este paciente.</p>
             <div className="space-y-2">
               <Label htmlFor="psych-select">Profesional</Label>
               <Select value={selectedPsychId} onValueChange={setSelectedPsychId}>
-                <SelectTrigger id="psych-select" className="bg-zinc-950 border-zinc-800 text-white">
-                  <SelectValue placeholder="Seleccionar psicologo..." />
+                <SelectTrigger className="bg-zinc-950 border-zinc-800 text-white">
+                  <SelectValue placeholder="Seleccionar..." />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
                   {psychologists.length > 0 ? (
-                    psychologists.map((psych) => (
-                      <SelectItem key={psych.id} value={psych.id}>
-                        {psych.full_name || psych.email}
-                      </SelectItem>
+                    psychologists.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
                     ))
                   ) : (
-                    <div className="p-2 text-xs text-zinc-500">No hay psicologos registrados</div>
+                    <div className="p-2 text-xs text-zinc-500">No hay psicólogos registrados</div>
                   )}
                 </SelectContent>
               </Select>
             </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedPatientId(null)} className="border-zinc-700 text-zinc-300">
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleAssignPsychologist} 
-              disabled={!selectedPsychId || isAssigning}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {isAssigning ? 'Asignando...' : 'Confirmar Asignacion'}
+            <Button variant="outline" onClick={() => setSelectedPatientId(null)} className="border-zinc-700 text-zinc-300">Cancelar</Button>
+            <Button onClick={handleAssignPsychologist} disabled={!selectedPsychId || isAssigning} className="bg-blue-600 hover:bg-blue-700 text-white">
+              {isAssigning ? 'Asignando...' : 'Confirmar'}
             </Button>
           </DialogFooter>
         </DialogContent>

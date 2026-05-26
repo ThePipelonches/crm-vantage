@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui/button';
@@ -6,20 +6,10 @@ import { Input } from '../../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
-import { 
-  PlusCircle, RefreshCw, MoreHorizontal, Phone, Mail, Calendar, User, 
-  MessageCircle, Trash2, DollarSign, CreditCard 
-} from 'lucide-react';
+import { PlusCircle, RefreshCw, MoreHorizontal, Phone, Mail, Calendar, MessageCircle, Trash2, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
-import { Switch } from '../../components/ui/switch';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import { Textarea } from '../../components/ui/textarea';
 
 const COLUMNS = [
   { id: 'new', title: 'Nuevos', color: 'bg-blue-500' },
@@ -41,214 +31,94 @@ interface Lead {
   meta?: any;
 }
 
-// Modal para detalles de venta (Solo al cerrar)
-function CloseDealModal({ isOpen, onClose, onSave, lead }: any) {
-  const [totalValue, setTotalValue] = useState('');
-  const [cashCollected, setCashCollected] = useState('');
-  const [isInstallments, setIsInstallments] = useState(false);
-  const [installmentCount, setInstallmentCount] = useState('');
-  const [installmentValue, setInstallmentValue] = useState('');
-
-  // Resetear valores al abrir
-  useEffect(() => {
-    if (isOpen && lead?.meta) {
-      setTotalValue(lead.meta.total_value || '');
-      setCashCollected(lead.meta.cash_collected || '');
-      setIsInstallments(lead.meta.is_installments || false);
-      setInstallmentCount(lead.meta.installment_count || '');
-      setInstallmentValue(lead.meta.installment_value || '');
-    } else if (isOpen) {
-      setTotalValue(''); setCashCollected(''); setIsInstallments(false);
-      setInstallmentCount(''); setInstallmentValue('');
-    }
-  }, [isOpen, lead]);
-
-  const handleSave = () => {
-    onSave({
-      total_value: parseFloat(totalValue) || 0,
-      cash_collected: parseFloat(cashCollected) || 0,
-      is_installments: isInstallments,
-      installment_count: isInstallments ? parseInt(installmentCount) : 0,
-      installment_value: isInstallments ? parseFloat(installmentValue) : 0
-    });
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-green-400">
-            <DollarSign className="w-5 h-5" /> Finalizar Venta: {lead?.full_name}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Valor Total Plan ($)</Label>
-              <Input type="number" value={totalValue} onChange={(e) => setTotalValue(e.target.value)} className="bg-zinc-900 border-zinc-800 text-white" placeholder="0" />
-            </div>
-            <div className="space-y-2">
-              <Label>Cash Collect ($)</Label>
-              <Input type="number" value={cashCollected} onChange={(e) => setCashCollected(e.target.value)} className="bg-zinc-900 border-zinc-800 text-white" placeholder="0" />
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 bg-zinc-900 rounded-lg border border-zinc-800">
-            <div className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-zinc-400" />
-              <Label className="m-0 cursor-pointer">Â¿Paga a cuotas?</Label>
-            </div>
-            <Switch checked={isInstallments} onCheckedChange={setIsInstallments} />
-          </div>
-
-          {isInstallments && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="grid grid-cols-2 gap-4 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800">
-              <div className="space-y-2">
-                <Label>NÃºmero de Cuotas</Label>
-                <Input type="number" value={installmentCount} onChange={(e) => setInstallmentCount(e.target.value)} className="bg-zinc-900 border-zinc-800 text-white" placeholder="Ej: 3" />
-              </div>
-              <div className="space-y-2">
-                <Label>Valor por Cuota ($)</Label>
-                <Input type="number" value={installmentValue} onChange={(e) => setInstallmentValue(e.target.value)} className="bg-zinc-900 border-zinc-800 text-white" placeholder="0" />
-              </div>
-            </motion.div>
-          )}
-        </div>
-        <DialogFooter>
-          <button type="button" onClick={onClose} className="h-9 px-4 text-zinc-400 hover:text-white">Cancelar</button>
-          <button onClick={handleSave} className="h-9 px-4 bg-green-600 text-white hover:bg-green-700 rounded-md font-medium">Guardar Venta</button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
-  const [showCloseModal, setShowCloseModal] = useState(false);
-
   const handleWhatsApp = () => {
     if (!lead.phone) return;
     let cleanPhone = lead.phone.replace(/\D/g, '');
     if (cleanPhone.length === 10 && !cleanPhone.startsWith('57')) cleanPhone = '57' + cleanPhone;
-    const text = `Hola ${lead.full_name}, te contacto respecto a tu interÃ©s en Vantage.`;
+    const text = `Hola ${lead.full_name}, te contacto respecto a tu interés en Vantage.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleDelete = async () => {
-    if (!confirm('Â¿Eliminar lead?')) return;
+    if (!confirm('¿Eliminar lead?')) return;
     await supabase.from('leads').delete().eq('id', lead.id);
     onUpdate();
   };
 
   const handleStatusChange = async (newStatus: string) => {
-    // Si movemos a 'closed', abrimos el modal primero
-    if (newStatus === 'closed') {
-      setShowCloseModal(true);
-    } else {
-      // Movimiento normal sin modal
-      await supabase.from('leads').update({ status: newStatus }).eq('id', lead.id);
-      onUpdate();
-    }
-  };
-
-  const saveDealDetails = async (details: any) => {
-    // Actualizamos estado Y metadatos financieros
-    const newMeta = { ...(lead.meta || {}), ...details };
-    await supabase.from('leads').update({ 
-      status: 'closed',
-      meta: newMeta
-    }).eq('id', lead.id);
-    
-    setShowCloseModal(false);
+    // Si movemos a cerrados, podríamos validar datos aquí si quisiéramos, 
+    // pero lo manejamos mejor al hacer clic en la tarjeta si ya está cerrado.
+    await supabase.from('leads').update({ status: newStatus }).eq('id', lead.id);
     onUpdate();
   };
 
-  // Formatear moneda
-  const fmt = (val: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
+  const meta = lead.meta || {};
+  const isClosed = lead.status === 'closed';
 
   return (
-    <>
-      <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="mb-3 relative group">
-        <Card className="bg-zinc-900 border-zinc-800 transition-all hover:border-zinc-600">
-          <CardHeader className="p-3 pb-2">
-            <div className="flex justify-between items-start">
-              <div className="flex items-center gap-2 overflow-hidden">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-zinc-800 text-zinc-400">
-                  {lead.full_name.charAt(0).toUpperCase()}
-                </div>
-                <CardTitle className="text-sm font-semibold text-white truncate">{lead.full_name}</CardTitle>
+    <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="mb-3 relative group">
+      <Card className={`bg-zinc-900 border-zinc-800 transition-all hover:border-zinc-600 ${isClosed ? 'border-green-900/50 bg-green-950/10' : ''}`}>
+        <CardHeader className="p-3 pb-2">
+          <div className="flex justify-between items-start">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isClosed ? 'bg-green-900 text-green-100' : 'bg-zinc-800 text-zinc-400'}`}>
+                {lead.full_name.charAt(0).toUpperCase()}
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="h-6 w-6 flex items-center justify-center rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800">
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border-zinc-800 text-white">
-                  <DropdownMenuLabel className="text-xs text-zinc-500">Mover a...</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-zinc-800" />
-                  {COLUMNS.map((col) => (
-                    <DropdownMenuItem key={col.id} onClick={() => handleStatusChange(col.id)} className="cursor-pointer hover:bg-zinc-800">
-                      <div className={`w-2 h-2 rounded-full mr-2 ${col.color}`} /> {col.title}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator className="bg-zinc-800 my-2" />
-                  {lead.status === 'new' && lead.phone && (
-                    <DropdownMenuItem onClick={handleWhatsApp} className="text-green-400 hover:bg-green-900/30">
-                      <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator className="bg-zinc-800" />
-                  <DropdownMenuItem onClick={handleDelete} className="text-red-400 hover:bg-red-900/30">
-                    <Trash2 className="w-4 h-4 mr-2" /> Eliminar
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <CardTitle className="text-sm font-semibold text-white truncate">{lead.full_name}</CardTitle>
             </div>
-          </CardHeader>
-          <CardContent className="p-3 pt-0 space-y-2">
-            {lead.email && <div className="flex items-center gap-2 text-xs text-zinc-400 truncate"><Mail className="w-3 h-3" /> {lead.email}</div>}
-            {lead.phone && <div className="flex items-center gap-2 text-xs text-zinc-400"><Phone className="w-3 h-3" /> {lead.phone}</div>}
-            
-            {/* Mostrar resumen financiero si estÃ¡ cerrado */}
-            {lead.status === 'closed' && lead.meta && (
-              <div className="mt-3 pt-2 border-t border-zinc-800 space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-zinc-500">Total:</span>
-                  <span className="text-green-400 font-medium">{fmt(lead.meta.total_value)}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-zinc-500">Cash:</span>
-                  <span className="text-blue-400 font-medium">{fmt(lead.meta.cash_collected)}</span>
-                </div>
-                {lead.meta.is_installments && (
-                  <div className="flex justify-between text-xs bg-zinc-800/50 p-1 rounded mt-1">
-                    <span className="text-zinc-400">{lead.meta.installment_count} x {fmt(lead.meta.installment_value)}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between pt-2 border-t border-zinc-800 mt-2">
-              <div className="flex items-center gap-2 text-xs text-zinc-500"><Calendar className="w-3 h-3" /> {new Date(lead.created_at).toLocaleDateString()}</div>
-              {lead.status === 'new' && lead.phone && (
-                <button onClick={handleWhatsApp} className="h-6 px-2 text-[10px] bg-green-900/20 border border-green-800 text-green-400 rounded-md flex items-center gap-1">
-                  <MessageCircle className="w-3 h-3" /> WhatsApp
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="h-6 w-6 flex items-center justify-center rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800">
+                  <MoreHorizontal className="w-4 h-4" />
                 </button>
-              )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border-zinc-800 text-white">
+                <DropdownMenuLabel className="text-xs text-zinc-500">Mover a...</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-zinc-800" />
+                {COLUMNS.map((col) => (
+                  <DropdownMenuItem key={col.id} onClick={() => handleStatusChange(col.id)} className="cursor-pointer hover:bg-zinc-800">
+                    <div className={`w-2 h-2 rounded-full mr-2 ${col.color}`} /> {col.title}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator className="bg-zinc-800 my-2" />
+                {lead.status === 'new' && lead.phone && (
+                  <DropdownMenuItem onClick={handleWhatsApp} className="text-green-400 hover:bg-green-900/30">
+                    <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator className="bg-zinc-800" />
+                <DropdownMenuItem onClick={handleDelete} className="text-red-400 hover:bg-red-900/30">
+                  <Trash2 className="w-4 h-4 mr-2" /> Eliminar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </CardHeader>
+        <CardContent className="p-3 pt-0 space-y-2">
+          {lead.email && <div className="flex items-center gap-2 text-xs text-zinc-400 truncate"><Mail className="w-3 h-3" /> {lead.email}</div>}
+          {lead.phone && <div className="flex items-center gap-2 text-xs text-zinc-400"><Phone className="w-3 h-3" /> {lead.phone}</div>}
+          
+          {/* Resumen visual si está cerrado */}
+          {isClosed && meta.total_value && (
+            <div className="mt-2 p-2 bg-green-900/20 border border-green-800/50 rounded text-xs text-green-200 space-y-1">
+              <div className="flex justify-between"><span>Total:</span> <span className="font-bold">${meta.total_value.toLocaleString()}</span></div>
+              {meta.cash_collected && <div className="flex justify-between"><span>Pago Inicial:</span> <span>${meta.cash_collected.toLocaleString()}</span></div>}
+              {meta.installments && <div className="flex justify-between"><span>Cuotas:</span> <span>{meta.installments} x ${meta.installment_value?.toLocaleString()}</span></div>}
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+          )}
 
-      {/* Modal de Cierre */}
-      <CloseDealModal 
-        isOpen={showCloseModal} 
-        onClose={() => setShowCloseModal(false)} 
-        onSave={saveDealDetails}
-        lead={lead}
-      />
-    </>
+          <div className="flex items-center justify-between pt-2 border-t border-zinc-800 mt-2">
+            <div className="flex items-center gap-2 text-xs text-zinc-500"><Calendar className="w-3 h-3" /> {new Date(lead.created_at).toLocaleDateString()}</div>
+            {lead.status === 'new' && lead.phone && (
+              <button onClick={handleWhatsApp} className="h-6 px-2 text-[10px] bg-green-900/20 border border-green-800 text-green-400 rounded-md flex items-center gap-1">
+                <MessageCircle className="w-3 h-3" /> WhatsApp
+              </button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
 
@@ -257,12 +127,15 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // Estado para nuevo lead manual
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPhone, setNewPhone] = useState('');
-  
-  // Ref para evitar doble suscripciÃ³n
-  
+
+  // Estado para edición de lead cerrado
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [closeData, setCloseData] = useState({ total_value: '', cash_collected: '', installments: '', installment_value: '' });
 
   const loadLeads = async () => {
     const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
@@ -272,14 +145,9 @@ export default function LeadsPage() {
 
   useEffect(() => {
     loadLeads();
-    const intervalId = setInterval(() => loadLeads(), 5000);
-    return () => clearInterval(intervalId);
-    
-    // Suscribirse solo si no existe un canal activo
-    
-    }
-
-    return () => {};
+    // Polling cada 5 segundos para evitar errores de realtime
+    const interval = setInterval(loadLeads, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleCreateLead = async (e: React.FormEvent) => {
@@ -297,6 +165,36 @@ export default function LeadsPage() {
     setNewName(''); setNewEmail(''); setNewPhone('');
   };
 
+  const handleOpenCloseModal = (lead: Lead) => {
+    setEditingLead(lead);
+    const meta = lead.meta || {};
+    setCloseData({
+      total_value: meta.total_value || '',
+      cash_collected: meta.cash_collected || '',
+      installments: meta.installments || '',
+      installment_value: meta.installment_value || ''
+    });
+  };
+
+  const handleSaveCloseData = async () => {
+    if (!editingLead) return;
+    
+    const meta = {
+      total_value: Number(closeData.total_value) || 0,
+      cash_collected: Number(closeData.cash_collected) || 0,
+      installments: Number(closeData.installments) || 0,
+      installment_value: Number(closeData.installment_value) || 0
+    };
+
+    await supabase.from('leads').update({ 
+      status: 'closed',
+      meta 
+    }).eq('id', editingLead.id);
+
+    setEditingLead(null);
+    loadLeads();
+  };
+
   const columnsData = COLUMNS.map(col => ({ ...col, items: leads.filter(l => l.status === col.id) }));
 
   return (
@@ -304,7 +202,7 @@ export default function LeadsPage() {
       <div className="flex justify-between items-center mb-6 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-white">Pipeline de Leads</h1>
-          <p className="text-sm text-zinc-400 mt-1">Gestiona tus leads y cierra ventas.</p>
+          <p className="text-sm text-zinc-400 mt-1">Gestiona tus leads. Al mover a "Cerrados", ingresa los valores de venta.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={loadLeads} disabled={loading} className="border-zinc-700 text-zinc-300">
@@ -321,14 +219,14 @@ export default function LeadsPage() {
               <form onSubmit={handleCreateLead} className="space-y-4 mt-2">
                 <div className="space-y-2">
                   <Label>Nombre Completo *</Label>
-                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan PÃ©rez" className="bg-zinc-900 border-zinc-800 text-white" />
+                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan Pérez" className="bg-zinc-900 border-zinc-800 text-white" />
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
                   <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="juan@ejemplo.com" className="bg-zinc-900 border-zinc-800 text-white" />
                 </div>
                 <div className="space-y-2">
-                  <Label>TelÃ©fono</Label>
+                  <Label>Teléfono</Label>
                   <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+57 300 123 4567" className="bg-zinc-900 border-zinc-800 text-white" />
                 </div>
                 <DialogFooter className="pt-4">
@@ -359,7 +257,11 @@ export default function LeadsPage() {
                 </div>
                 <div className="p-2 flex-1 overflow-y-auto min-h-[150px]">
                   <AnimatePresence>
-                    {col.items.map((lead) => (<LeadCard key={lead.id} lead={lead} onUpdate={loadLeads} />))}
+                    {col.items.map((lead) => (
+                      <div key={lead.id} onClick={() => lead.status === 'closed' ? handleOpenCloseModal(lead) : null} className={lead.status === 'closed' ? 'cursor-pointer' : ''}>
+                        <LeadCard lead={lead} onUpdate={loadLeads} />
+                      </div>
+                    ))}
                   </AnimatePresence>
                   {col.items.length === 0 && (<div className="h-24 flex items-center justify-center text-xs text-zinc-600 italic border-2 border-dashed border-zinc-800/50 rounded-lg m-1">Sin leads</div>)}
                 </div>
@@ -368,6 +270,40 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
+
+      {/* Modal para editar datos de venta (Cerrados) */}
+      <Dialog open={!!editingLead} onOpenChange={(open) => !open && setEditingLead(null)}>
+        <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-green-500" />
+              Datos de Venta - {editingLead?.full_name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Valor Total Plan ($)</Label>
+              <Input type="number" value={closeData.total_value} onChange={(e) => setCloseData({...closeData, total_value: e.target.value})} className="bg-zinc-900 border-zinc-800 text-white" placeholder="0" />
+            </div>
+            <div className="space-y-2">
+              <Label>Cash Collect / Pago Inicial ($)</Label>
+              <Input type="number" value={closeData.cash_collected} onChange={(e) => setCloseData({...closeData, cash_collected: e.target.value})} className="bg-zinc-900 border-zinc-800 text-white" placeholder="0" />
+            </div>
+            <div className="space-y-2">
+              <Label>Número de Cuotas</Label>
+              <Input type="number" value={closeData.installments} onChange={(e) => setCloseData({...closeData, installments: e.target.value})} className="bg-zinc-900 border-zinc-800 text-white" placeholder="Ej: 12" />
+            </div>
+            <div className="space-y-2">
+              <Label>Valor por Cuota ($)</Label>
+              <Input type="number" value={closeData.installment_value} onChange={(e) => setCloseData({...closeData, installment_value: e.target.value})} className="bg-zinc-900 border-zinc-800 text-white" placeholder="0" />
+            </div>
+          </div>
+          <DialogFooter>
+            <button onClick={() => setEditingLead(null)} className="h-9 px-4 text-zinc-400 hover:text-white">Cancelar</button>
+            <button onClick={handleSaveCloseData} className="h-9 px-4 bg-green-600 text-white hover:bg-green-700 rounded-md font-medium">Guardar Venta</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

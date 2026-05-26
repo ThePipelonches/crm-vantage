@@ -5,7 +5,7 @@ import { AppLayout } from './layouts/AppLayout';
 
 // Admin & General
 import Dashboard from './pages/admin/Dashboard';
-import LeadsPage from './pages/setter/Leads';
+import LeadsPage from './pages/admin/Leads';
 
 // Commercial
 import CommercialDashboard from './pages/commercial/Dashboard';

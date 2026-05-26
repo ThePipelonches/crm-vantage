@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+﻿import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   LayoutDashboard,
@@ -33,9 +33,9 @@ export function Sidebar() {
       { label: 'Leads (Todos)', path: '/leads', icon: ClipboardList },
       { label: 'Dashboard Comercial', path: '/commercial', icon: DollarSign },
       { label: 'Citas Comerciales', path: '/appointments', icon: CalendarDays },
-      { label: 'Dashboard Clínico', path: '/clinical', icon: Brain },
+      { label: 'Dashboard ClÃ­nico', path: '/clinical', icon: Brain },
       { label: 'Pacientes', path: '/clients', icon: Users },
-      { label: 'Citas Clínicas', path: '/clinical-appointments', icon: CalendarDays },
+      { label: 'Citas ClÃ­nicas', path: '/clinical-appointments', icon: CalendarDays },
     ];
   } else if (isSetter) {
     menuItems = [
@@ -49,7 +49,7 @@ export function Sidebar() {
     ];
   } else if (isPsychologist) {
     menuItems = [
-      { label: 'Dashboard Clínico', path: '/clinical', icon: Brain },
+      { label: 'Dashboard ClÃ­nico', path: '/clinical', icon: Brain },
       { label: 'Mis Pacientes', path: '/clients', icon: Users },
       { label: 'Mis Citas', path: '/clinical-appointments', icon: CalendarDays },
     ];
@@ -91,7 +91,7 @@ export function Sidebar() {
           onClick={signOut}
         >
           <LogOut className="w-4 h-4 mr-2" />
-          Cerrar Sesión
+          Cerrar SesiÃ³n
         </Button>
       </div>
     </aside>

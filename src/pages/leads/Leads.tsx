@@ -39,12 +39,12 @@ function LeadCard({ lead, onUpdate, onStatusChange }: { lead: Lead; onUpdate: ()
     if (!lead.phone) return;
     let cleanPhone = lead.phone.replace(/\D/g, '');
     if (cleanPhone.length === 10 && !cleanPhone.startsWith('57')) cleanPhone = '57' + cleanPhone;
-    const text = `Hola ${lead.full_name}, te contacto respecto a tu interÃ©s en Vantage.`;
+    const text = `Hola ${lead.full_name}, te contacto respecto a tu interÃƒÂ©s en Vantage.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleDelete = async () => {
-    if (!confirm('Â¿Eliminar lead?')) return;
+    if (!confirm('Ã‚Â¿Eliminar lead?')) return;
     await supabase.from('leads').delete().eq('id', lead.id);
     onUpdate();
   };
@@ -195,9 +195,9 @@ export default function LeadsPage() {
     });
 
     if (patientErr) {
-      alert('Lead cerrado, pero fallÃ³ crear paciente: ' + patientErr.message);
+      alert('Lead cerrado, pero fallÃƒÂ³ crear paciente: ' + patientErr.message);
     } else {
-      alert('âœ… Venta cerrada y Paciente creado. Revisa la pÃ¡gina de Pacientes.');
+      alert('Ã¢Å“â€¦ Venta cerrada y Paciente creado. Revisa la pÃƒÂ¡gina de Pacientes.');
     }
 
     setIsSaleModalOpen(false);
@@ -229,9 +229,9 @@ export default function LeadsPage() {
             <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-md">
               <DialogHeader><DialogTitle>Agregar Nuevo Lead</DialogTitle></DialogHeader>
               <form onSubmit={handleCreateLead} className="space-y-4 mt-2">
-                <div className="space-y-2"><Label>Nombre Completo *</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan PÃ©rez" className="bg-zinc-900 border-zinc-800 text-white" /></div>
+                <div className="space-y-2"><Label>Nombre Completo *</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan PÃƒÂ©rez" className="bg-zinc-900 border-zinc-800 text-white" /></div>
                 <div className="space-y-2"><Label>Email</Label><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="juan@ejemplo.com" className="bg-zinc-900 border-zinc-800 text-white" /></div>
-                <div className="space-y-2"><Label>TelÃ©fono</Label><Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+57 300 123 4567" className="bg-zinc-900 border-zinc-800 text-white" /></div>
+                <div className="space-y-2"><Label>TelÃƒÂ©fono</Label><Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+57 300 123 4567" className="bg-zinc-900 border-zinc-800 text-white" /></div>
                 <DialogFooter className="pt-4">
                   <button type="button" onClick={() => setIsDialogOpen(false)} className="h-9 px-4 text-zinc-400 hover:text-white">Cancelar</button>
                   <button type="submit" className="h-9 px-4 bg-white text-black hover:bg-zinc-200 rounded-md font-medium">Guardar Lead</button>
@@ -269,18 +269,18 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {/* Modal de ConfirmaciÃ³n de Venta */}
+      {/* Modal de ConfirmaciÃƒÂ³n de Venta */}
       <Dialog open={isSaleModalOpen} onOpenChange={(open) => { if(!open) { setIsSaleModalOpen(false); setClosingLeadId(null); } }}>
         <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-400"><CheckCircle className="w-5 h-5"/> Confirmar Cierre de Venta</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <p className="text-sm text-zinc-400">Ingresa los detalles de la venta para crear al paciente automÃ¡ticamente.</p>
+            <p className="text-sm text-zinc-400">Ingresa los detalles de la venta para crear al paciente automÃƒÂ¡ticamente.</p>
             <div className="space-y-2"><Label>Valor Total del Plan ($)</Label><Input type="number" value={saleTotal} onChange={(e) => setSaleTotal(e.target.value)} className="bg-zinc-900 border-zinc-800 text-white" placeholder="Ej: 2000000" /></div>
             <div className="space-y-2"><Label>Pago Inicial / Cash Collected ($)</Label><Input type="number" value={cashCollected} onChange={(e) => setCashCollected(e.target.value)} className="bg-zinc-900 border-zinc-800 text-white" placeholder="Ej: 500000" /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>NÂº Cuotas</Label><Input type="number" value={installmentsCount} onChange={(e) => setInstallmentsCount(e.target.value)} className="bg-zinc-900 border-zinc-800 text-white" placeholder="Ej: 4" /></div>
+              <div className="space-y-2"><Label>NÃ‚Âº Cuotas</Label><Input type="number" value={installmentsCount} onChange={(e) => setInstallmentsCount(e.target.value)} className="bg-zinc-900 border-zinc-800 text-white" placeholder="Ej: 4" /></div>
               <div className="space-y-2"><Label>Valor por Cuota ($)</Label><Input type="number" value={installmentValue} onChange={(e) => setInstallmentValue(e.target.value)} className="bg-zinc-900 border-zinc-800 text-white" placeholder="Ej: 375000" /></div>
             </div>
           </div>

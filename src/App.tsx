@@ -1,13 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
-import { AppLayout } from './layouts/AppLayout';
 import Dashboard from './pages/admin/Dashboard';
 import LeadsPage from './pages/leads/Leads';
 import PatientsPage from './pages/patients/PatientsPage';
 import CommercialDashboard from './pages/commercial/Dashboard';
 import PsychologistDashboard from './pages/psychologist/Dashboard';
 
-// Componente de protección de rutas por rol
+// Componente para proteger rutas por Rol
 function RoleGuard({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, loading } = useAuth();
   
@@ -23,25 +22,68 @@ function RoleGuard({ children, allowedRoles }: { children: React.ReactNode; allo
 // Componente principal de Rutas
 function AppRoutes() {
   const { user } = useAuth();
+  const location = useLocation();
 
-  // Si no hay usuario, redirigir al login (o mostrar login si tuvieras la página)
-  // Como no tenemos LoginPage importada, asumimos que el login se maneja fuera o redirigimos
+  // Si no hay usuario, redirigir a login (ajusta la ruta de login si es diferente)
   if (!user) {
-     // Fallback simple: Redirigir a una ruta segura o mostrar mensaje
-     // Lo ideal sería tener <LoginPage />, pero por ahora navegamos a root que debería protegerse
-     return <Navigate to="/" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Renderizamos las rutas directamente. 
+  // NOTA: Hemos eliminado el wrapper <AppLayout> que causaba el error TS2559.
+  // Si necesitas el layout visual (sidebar/header), asegúrate de que esté dentro de cada página
+  // o crea un LayoutSimple que no tenga conflictos de props.
   return (
-    <AppLayout>
+    <div className="min-h-screen bg-black text-white">
+      {/* Aquí podrías incluir un Header/Sidebar simple si AppLayout fallaba */}
+      {/* Por ahora, renderizamos el contenido puro de las rutas */}
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/leads" element={<RoleGuard allowedRoles={['admin', 'closer']}><LeadsPage /></RoleGuard>} />
-        <Route path="/patients" element={<RoleGuard allowedRoles={['admin', 'psychologist']}><PatientsPage /></RoleGuard>} />
-        <Route path="/commercial" element={<RoleGuard allowedRoles={['admin', 'closer']}><CommercialDashboard /></RoleGuard>} />
-        <Route path="/psychologist" element={<RoleGuard allowedRoles={['psychologist']}><PsychologistDashboard /></RoleGuard>} />
+        
+        {/* Leads: Admin y Closers */}
+        <Route 
+          path="/leads" 
+          element={
+            <RoleGuard allowedRoles={['admin', 'closer']}>
+              <LeadsPage />
+            </RoleGuard>
+          } 
+        />
+        
+        {/* Pacientes: Admin y Psicólogos */}
+        <Route 
+          path="/patients" 
+          element={
+            <RoleGuard allowedRoles={['admin', 'psychologist']}>
+              <PatientsPage />
+            </RoleGuard>
+          } 
+        />
+        
+        {/* Comercial: Admin y Closers */}
+        <Route 
+          path="/commercial" 
+          element={
+            <RoleGuard allowedRoles={['admin', 'closer']}>
+              <CommercialDashboard />
+            </RoleGuard>
+          } 
+        />
+        
+        {/* Psicólogo: Solo Psicólogos */}
+        <Route 
+          path="/psychologist" 
+          element={
+            <RoleGuard allowedRoles={['psychologist']}>
+              <PsychologistDashboard />
+            </RoleGuard>
+          } 
+        />
+        
+        {/* Ruta comodín para 404 */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </AppLayout>
+    </div>
   );
 }
 

@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Button } from './ui/button';
 
 export function Sidebar() {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -19,10 +19,10 @@ export function Sidebar() {
     { path: '/leads', label: 'Pipeline de Leads', icon: Users, roles: ['admin', 'closer'] },
     { path: '/commercial', label: 'Ventas', icon: Briefcase, roles: ['admin', 'closer'] },
     { path: '/appointments', label: 'Citas Comerciales', icon: Calendar, roles: ['admin', 'closer'] },
-    { path: '/clinical', label: 'Dashboard Clínico', icon: Stethoscope, roles: ['admin', 'psychologist'] },
+    { path: '/clinical', label: 'Dashboard ClÃ­nico', icon: Stethoscope, roles: ['admin', 'psychologist'] },
     { path: '/clients', label: 'Pacientes', icon: Users, roles: ['admin', 'psychologist'] },
-    { path: '/clinical-appointments', label: 'Citas Clínicas', icon: Calendar, roles: ['admin', 'psychologist'] },
-    { path: '/admin-panel', label: 'Administración', icon: LayoutDashboard, roles: ['admin'] },
+    { path: '/clinical-appointments', label: 'Citas ClÃ­nicas', icon: Calendar, roles: ['admin', 'psychologist'] },
+    { path: '/admin-panel', label: 'AdministraciÃ³n', icon: LayoutDashboard, roles: ['admin'] },
   ];
 
   const filteredItems = menuItems.filter(item => 
@@ -67,11 +67,11 @@ export function Sidebar() {
 
           <div className="p-4 border-t border-zinc-800">
             <button
-              onClick={logout}
+              onClick={signOut}
               className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-950/30 rounded-lg transition-colors"
             >
               <LogOut className="w-5 h-5" />
-              Cerrar Sesión
+              Cerrar SesiÃ³n
             </button>
           </div>
         </div>

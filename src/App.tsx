@@ -8,6 +8,7 @@ import Dashboard from './pages/admin/Dashboard';
 
 // Leads Pipeline (Compartido Admin/Commercial)
 import LeadsPage from './pages/leads/Leads';
+import PatientsPage from './pages/patients/PatientsPage';
 
 // Commercial
 import CommercialDashboard from './pages/commercial/Dashboard';

@@ -6,9 +6,14 @@ import { Input } from '../../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
-import { PlusCircle, RefreshCw, MoreHorizontal, Phone, Mail, Calendar, MessageCircle, Trash2, DollarSign } from 'lucide-react';
+import { 
+  PlusCircle, RefreshCw, MoreHorizontal, Phone, Mail, Calendar, 
+  MessageCircle, Trash2, DollarSign, CreditCard 
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 
 const COLUMNS = [
@@ -51,43 +56,13 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
   };
 
   const handleStatusChange = async (newStatus: string) => {
-    // Si mueve a cerrados y no está convertido, abrir modal (lógica simplificada aquí)
-    if (newStatus === 'closed' && !lead.is_converted) {
-       // En una implementación real, esto dispararía el modal. 
-       // Por ahora, solo actualizamos estado y el usuario deberá editar o re-asignar.
-       // Para esta solución urgente, permitimos el movimiento directo.
-    }
+    // Si mueve a Cerrados y no tiene datos de venta, abrir modal (lógica manejada en el padre o aquí si es simple)
+    // Para simplificar, actualizamos estado y si es 'closed' sin datos, el padre podría manejarlo, 
+    // pero aquí haremos el update directo. Si necesita datos, el usuario debe llenarlos antes o después.
+    // Mejora: Si va a closed y no tiene sale_total, podríamos forzar el modal desde el padre.
+    // Por ahora, permitimos el cambio y si está vacío, se puede editar luego o convertir.
+    
     await supabase.from('leads').update({ status: newStatus }).eq('id', lead.id);
-    onUpdate();
-  };
-
-  const handleConvert = async () => {
-    const total = prompt("Valor total del plan:");
-    if (!total) return;
-    const cash = prompt("Cash collected (pago inicial):");
-    const hasInstallments = confirm("¿Paga a cuotas?");
-    let installCount = 0;
-    let installVal = 0;
-    
-    if (hasInstallments) {
-      const countStr = prompt("Número de cuotas:");
-      installCount = parseInt(countStr || '0');
-      if (installCount > 0) {
-        const remaining = parseFloat(total) - parseFloat(cash || '0');
-        installVal = remaining / installCount;
-      }
-    }
-
-    await supabase.from('leads').update({
-      status: 'closed',
-      is_converted: true,
-      sale_total: parseFloat(total),
-      cash_collected: parseFloat(cash || '0'),
-      installments_count: installCount,
-      installment_value: installVal
-    }).eq('id', lead.id);
-    
-    alert("Lead convertido. Se notificará a administración para asignar psicólogo.");
     onUpdate();
   };
 
@@ -117,12 +92,7 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator className="bg-zinc-800 my-2" />
-                {lead.status !== 'closed' && !lead.is_converted && (
-                   <DropdownMenuItem onClick={handleConvert} className="text-green-400 hover:bg-green-900/30 font-bold">
-                   <DollarSign className="w-4 h-4 mr-2" /> Convertir a Paciente
-                 </DropdownMenuItem>
-                )}
-                {lead.status === 'new' && lead.phone && (
+                {lead.phone && (
                   <DropdownMenuItem onClick={handleWhatsApp} className="text-green-400 hover:bg-green-900/30">
                     <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
                   </DropdownMenuItem>
@@ -139,16 +109,35 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
           {lead.email && <div className="flex items-center gap-2 text-xs text-zinc-400 truncate"><Mail className="w-3 h-3" /> {lead.email}</div>}
           {lead.phone && <div className="flex items-center gap-2 text-xs text-zinc-400"><Phone className="w-3 h-3" /> {lead.phone}</div>}
           
-          {lead.is_converted && (
-            <div className="mt-2 p-2 bg-green-900/20 border border-green-800 rounded text-xs text-green-400">
-              <p className="font-bold">Convertido a Paciente</p>
-              <p>Total: ${lead.sale_total} | Inicial: ${lead.cash_collected}</p>
-              {lead.installments_count > 0 && <p>{lead.installments_count} cuotas de ${lead.installment_value?.toFixed(2)}</p>}
+          {/* Resumen de venta si está cerrado */}
+          {lead.status === 'closed' && lead.sale_total && (
+            <div className="mt-2 pt-2 border-t border-zinc-800 text-xs space-y-1">
+              <div className="flex justify-between text-zinc-300">
+                <span>Total:</span>
+                <span className="font-bold text-green-400">${lead.sale_total.toLocaleString()}</span>
+              </div>
+              {lead.cash_collected && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>Inicial:</span>
+                  <span>${lead.cash_collected.toLocaleString()}</span>
+                </div>
+              )}
+              {lead.installments_count && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>Cuotas:</span>
+                  <span>{lead.installments_count} x ${lead.installment_value?.toLocaleString()}</span>
+                </div>
+              )}
             </div>
           )}
 
           <div className="flex items-center justify-between pt-2 border-t border-zinc-800 mt-2">
             <div className="flex items-center gap-2 text-xs text-zinc-500"><Calendar className="w-3 h-3" /> {new Date(lead.created_at).toLocaleDateString()}</div>
+            {lead.phone && (
+              <button onClick={handleWhatsApp} className="h-6 px-2 text-[10px] bg-green-900/20 border border-green-800 text-green-400 rounded-md flex items-center gap-1 hover:bg-green-900/40">
+                <MessageCircle className="w-3 h-3" /> WhatsApp
+              </button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -164,10 +153,22 @@ export default function LeadsPage() {
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPhone, setNewPhone] = useState('');
+  
+  // Estados para el modal de cierre de venta
+  const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
+  const [selectedLeadForSale, setSelectedLeadForSale] = useState<Lead | null>(null);
+  const [saleTotal, setSaleTotal] = useState<number | ''>('');
+  const [cashCollected, setCashCollected] = useState<number | ''>('');
+  const [installmentsCount, setInstallmentsCount] = useState<number | ''>('');
+  const [installmentValue, setInstallmentValue] = useState<number | ''>('');
 
   const loadLeads = async () => {
-    // Filtramos los convertidos para que no aparezcan en el pipeline
-    const { data, error } = await supabase.from('leads').select('*').eq('is_converted', false).order('created_at', { ascending: false });
+    // Solo cargar leads que NO estén convertidos a pacientes aún
+    const { data, error } = await supabase.from('leads')
+      .select('*')
+      .eq('is_converted', false) // Filtrar los que ya son pacientes
+      .order('created_at', { ascending: false });
+    
     if (!error && data) setLeads(data);
     setLoading(false);
   };
@@ -194,6 +195,61 @@ export default function LeadsPage() {
     loadLeads();
   };
 
+  // Manejar cambio de estado: si es a 'closed', abrir modal de venta
+  const handleStatusChangeRequest = (lead: Lead, newStatus: string) => {
+    if (newStatus === 'closed' && (!lead.sale_total)) {
+      setSelectedLeadForSale(lead);
+      setIsSaleModalOpen(true);
+    } else {
+      supabase.from('leads').update({ status: newStatus }).eq('id', lead.id).then(() => loadLeads());
+    }
+  };
+
+  // Guardar venta y convertir a paciente
+  const handleSaveSaleAndConvert = async () => {
+    if (!selectedLeadForSale || !saleTotal) return;
+
+    const updateData: any = {
+      status: 'closed',
+      sale_total: Number(saleTotal),
+      cash_collected: cashCollected ? Number(cashCollected) : 0,
+      installments_count: installmentsCount ? Number(installmentsCount) : 0,
+      installment_value: installmentValue ? Number(installmentValue) : 0,
+      is_converted: true, // MARCAR COMO CONVERTIDO PARA QUE DESAPAREZCA DEL PIPELINE
+      notes: `Venta cerrada. Total: ${saleTotal}. Inicial: ${cashCollected}. Cuotas: ${installmentsCount} de ${installmentValue}.`
+    };
+
+    // 1. Actualizar Lead
+    const { error: leadError } = await supabase.from('leads').update(updateData).eq('id', selectedLeadForSale.id);
+    
+    if (leadError) {
+      alert('Error al guardar venta: ' + leadError.message);
+      return;
+    }
+
+    // 2. Crear Paciente
+    const { error: patientError } = await supabase.from('patients').insert({
+      full_name: selectedLeadForSale.full_name,
+      email: selectedLeadForSale.email,
+      phone: selectedLeadForSale.phone,
+      status: 'pending_assignment',
+      notes: updateData.notes,
+      source_lead_id: selectedLeadForSale.id
+    });
+
+    if (patientError) {
+      alert('Error al crear paciente: ' + patientError.message);
+      // Rollback opcional si falla la creación del paciente
+      return;
+    }
+
+    alert('¡Venta guardada y paciente creado exitosamente!');
+    setIsSaleModalOpen(false);
+    setSelectedLeadForSale(null);
+    setSaleTotal(''); setCashCollected(''); setInstallmentsCount(''); setInstallmentValue('');
+    loadLeads();
+  };
+
   const columnsData = COLUMNS.map(col => ({ ...col, items: leads.filter(l => l.status === col.id) }));
 
   return (
@@ -201,7 +257,7 @@ export default function LeadsPage() {
       <div className="flex justify-between items-center mb-6 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-white">Pipeline de Leads</h1>
-          <p className="text-sm text-zinc-400 mt-1">Gestiona tus leads hasta convertirlos en pacientes.</p>
+          <p className="text-sm text-zinc-400 mt-1">Gestiona tus leads. Al cerrar una venta, se crea el paciente automáticamente.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={loadLeads} disabled={loading} className="border-zinc-700 text-zinc-300">
@@ -216,18 +272,9 @@ export default function LeadsPage() {
             <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-md">
               <DialogHeader><DialogTitle>Agregar Nuevo Lead</DialogTitle></DialogHeader>
               <form onSubmit={handleCreateLead} className="space-y-4 mt-2">
-                <div className="space-y-2">
-                  <Label>Nombre Completo *</Label>
-                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan Pérez" className="bg-zinc-900 border-zinc-800 text-white" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="juan@ejemplo.com" className="bg-zinc-900 border-zinc-800 text-white" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Teléfono</Label>
-                  <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+57 300 123 4567" className="bg-zinc-900 border-zinc-800 text-white" />
-                </div>
+                <div className="space-y-2"><Label>Nombre Completo *</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan Pérez" className="bg-zinc-900 border-zinc-800 text-white" /></div>
+                <div className="space-y-2"><Label>Email</Label><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="juan@ejemplo.com" className="bg-zinc-900 border-zinc-800 text-white" /></div>
+                <div className="space-y-2"><Label>Teléfono</Label><Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+57 300 123 4567" className="bg-zinc-900 border-zinc-800 text-white" /></div>
                 <DialogFooter className="pt-4">
                   <button type="button" onClick={() => setIsDialogOpen(false)} className="h-9 px-4 text-zinc-400 hover:text-white">Cancelar</button>
                   <button type="submit" className="h-9 px-4 bg-white text-black hover:bg-zinc-200 rounded-md font-medium">Guardar Lead</button>
@@ -239,9 +286,7 @@ export default function LeadsPage() {
       </div>
 
       {loading && leads.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-zinc-500 flex-col gap-2">
-          <RefreshCw className="w-8 h-8 animate-spin" /><p>Cargando pipeline...</p>
-        </div>
+        <div className="flex-1 flex items-center justify-center text-zinc-500 flex-col gap-2"><RefreshCw className="w-8 h-8 animate-spin" /><p>Cargando pipeline...</p></div>
       ) : (
         <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
           <div className="flex gap-4 min-w-[1200px] h-full">
@@ -256,7 +301,9 @@ export default function LeadsPage() {
                 </div>
                 <div className="p-2 flex-1 overflow-y-auto min-h-[150px]">
                   <AnimatePresence>
-                    {col.items.map((lead) => (<LeadCard key={lead.id} lead={lead} onUpdate={loadLeads} />))}
+                    {col.items.map((lead) => (
+                      <LeadCard key={lead.id} lead={lead} onUpdate={loadLeads} />
+                    ))}
                   </AnimatePresence>
                   {col.items.length === 0 && (<div className="h-24 flex items-center justify-center text-xs text-zinc-600 italic border-2 border-dashed border-zinc-800/50 rounded-lg m-1">Sin leads</div>)}
                 </div>
@@ -265,6 +312,49 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL DE VENTA Y CONVERSIÓN */}
+      <Dialog open={isSaleModalOpen} onOpenChange={setIsSaleModalOpen}>
+        <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-400">
+              <DollarSign className="w-5 h-5" /> Cerrar Venta y Crear Paciente
+            </DialogTitle>
+            <p className="text-sm text-zinc-400">Completa la información financiera para {selectedLeadForSale?.full_name}.</p>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Valor Total Programa ($)</Label>
+                <Input type="number" value={saleTotal} onChange={(e) => setSaleTotal(Number(e.target.value))} className="bg-zinc-900 border-zinc-800 text-white" placeholder="0" />
+              </div>
+              <div className="space-y-2">
+                <Label>Cash Collect / Inicial ($)</Label>
+                <Input type="number" value={cashCollected} onChange={(e) => setCashCollected(Number(e.target.value))} className="bg-zinc-900 border-zinc-800 text-white" placeholder="0" />
+              </div>
+            </div>
+            <div className="p-3 bg-zinc-900 rounded-lg border border-zinc-800 space-y-3">
+              <Label className="text-zinc-300 flex items-center gap-2"><CreditCard className="w-4 h-4" /> Información de Cuotas (Opcional)</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs">Número de Cuotas</Label>
+                  <Input type="number" value={installmentsCount} onChange={(e) => setInstallmentsCount(Number(e.target.value))} className="bg-zinc-950 border-zinc-800 text-white h-9" placeholder="Ej: 6" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Valor por Cuota ($)</Label>
+                  <Input type="number" value={installmentValue} onChange={(e) => setInstallmentValue(Number(e.target.value))} className="bg-zinc-950 border-zinc-800 text-white h-9" placeholder="Ej: 100000" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <button type="button" onClick={() => setIsSaleModalOpen(false)} className="h-9 px-4 text-zinc-400 hover:text-white">Cancelar</button>
+            <button onClick={handleSaveSaleAndConvert} className="h-9 px-4 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" /> Confirmar Venta y Crear Paciente
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

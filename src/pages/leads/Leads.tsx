@@ -33,7 +33,10 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
   const [isUrgent, setIsUrgent] = useState(false);
 
   useEffect(() => {
-    if (lead.status !== 'new') { setIsUrgent(false); return; }
+    if (lead.status !== 'new') {
+      setIsUrgent(false);
+      return;
+    }
     const checkUrgency = () => {
       const now = new Date();
       const created = new Date(lead.created_at);
@@ -133,29 +136,31 @@ export default function LeadsPage() {
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPhone, setNewPhone] = useState('');
-  
-  const channelRef = useRef<any>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadLeads = async () => {
-    const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
-    if (!error && data) setLeads(data);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+      if (!error && data) setLeads(data);
+      setLoading(false);
+    } catch (e) {
+      console.error("Error loading leads:", e);
+      setLoading(false);
+    }
   };
 
+  // SOLUCIÓN DEFINITIVA: Polling cada 5 segundos en lugar de WebSockets
   useEffect(() => {
-    loadLeads();
+    loadLeads(); // Carga inicial
     
-    if (!channelRef.current) {
-      channelRef.current = supabase.channel('public:leads')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => loadLeads())
-        .subscribe();
-    }
+    // Iniciar intervalo de recarga
+    intervalRef.current = setInterval(() => {
+      loadLeads();
+    }, 5000); // Recarga cada 5 segundos
 
+    // Limpieza al desmontar
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);
 
@@ -172,6 +177,7 @@ export default function LeadsPage() {
     });
     setIsDialogOpen(false);
     setNewName(''); setNewEmail(''); setNewPhone('');
+    loadLeads(); // Recarga inmediata tras crear
   };
 
   const columnsData = COLUMNS.map(col => ({ ...col, items: leads.filter(l => l.status === col.id) }));

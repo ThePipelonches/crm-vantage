@@ -1,54 +1,115 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
-// Ajusta estos imports según donde estén realmente tus archivos
-import LoginPage from './pages/auth/LoginPage'; 
 import Dashboard from './pages/admin/Dashboard';
 import LeadsPage from './pages/leads/Leads';
 import PatientsPage from './pages/patients/PatientsPage';
 import CommercialDashboard from './pages/commercial/Dashboard';
-// Si ClinicalDashboard no existe, usa un fallback o comenta esta línea
-import ClinicalDashboard from './pages/clinical/Dashboard'; 
 import PsychologistDashboard from './pages/psychologist/Dashboard';
-// Verifica si AppLayout exporta por defecto o named. Asumimos named por el error anterior.
-import { AppLayout } from './layouts/AppLayout'; 
+// import ClinicalDashboard from './pages/clinical/Dashboard'; // Comentado si no existe
+// import LoginPage from './pages/auth/LoginPage'; // Comentado si no existe
 
+// Componente de Protección de Roles Simplificado
 function RoleGuard({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
-  const { user, loading } = useAuth();
-  if (loading) return <div className="text-white p-10">Cargando...</div>;
-  if (!user || !allowedRoles.includes(user.role || '')) {
+  const { user, loading, logout } = useAuth();
+  const navigate = useNavigate();
+
+  if (loading) return <div className="flex h-screen items-center justify-center text-white">Cargando...</div>;
+  
+  if (!user) {
+    // Si no hay usuario, cerramos sesión (limpia estado) y redirigimos al login o home
+    // Asumimos que el login se maneja en otro lado o es una ruta pública si existiera
+    logout(); 
     return <Navigate to="/" replace />;
   }
+
+  if (!allowedRoles.includes(user.role || '')) {
+    return <div className="flex h-screen items-center justify-center text-white">Acceso Denegado</div>;
+  }
+
   return <>{children}</>;
 }
 
 function AppContent() {
   const { user, loading } = useAuth();
 
-  if (loading) {
-    return <div className="flex h-screen items-center justify-center bg-black text-white">Cargando CRM...</div>;
-  }
+  if (loading) return <div className="flex h-screen items-center justify-center text-white">Iniciando...</div>;
 
+  // Si no hay usuario, mostramos una vista simple de "Login" (o redirigimos si tuvieras LoginPage)
   if (!user) {
-    return <LoginPage />;
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-black text-white">
+        <h1 className="text-3xl font-bold mb-4">CRM Vantage</h1>
+        <p className="mb-6">Por favor inicia sesión.</p>
+        <button onClick={() => window.location.href = '/'} className="px-4 py-2 bg-white text-black rounded">Ir al Login</button>
+      </div>
+    );
   }
 
-  // Si AppLayout no acepta children, debemos usarlo diferente. 
-  // Asumiremos que sí los acepta basándonos en tu diseño anterior, pero si falla, 
-  // la estructura podría ser que AppLayout sea el que contiene las rutas.
-  
+  // Renderizado de Rutas
   return (
-    <AppLayout>
-      <Routes>
+    <div className="min-h-screen bg-black text-white">
+       {/* Aquí podrías envolver con Sidebar/TopBar si AppLayout no funciona */}
+       {/* Si tienes un componente Sidebar separado, impórtalo y úsalo aquí */}
+       
+       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/leads" element={<RoleGuard allowedRoles={['admin', 'closer']}><LeadsPage /></RoleGuard>} />
-        <Route path="/patients" element={<RoleGuard allowedRoles={['admin', 'psychologist']}><PatientsPage /></RoleGuard>} />
-        <Route path="/commercial" element={<RoleGuard allowedRoles={['admin', 'closer']}><CommercialDashboard /></RoleGuard>} />
-        <Route path="/clinical" element={<RoleGuard allowedRoles={['admin', 'psychologist']}><ClinicalDashboard /></RoleGuard>} />
-        <Route path="/psychologist" element={<RoleGuard allowedRoles={['psychologist']}><PsychologistDashboard /></RoleGuard>} />
-        {/* Ruta por defecto para cualquier camino desconocido */}
+        
+        {/* Leads: Admin y Closer */}
+        <Route 
+          path="/leads" 
+          element={
+            <RoleGuard allowedRoles={['admin', 'closer']}>
+              <LeadsPage />
+            </RoleGuard>
+          } 
+        />
+
+        {/* Pacientes: Admin y Psychologist */}
+        <Route 
+          path="/patients" 
+          element={
+            <RoleGuard allowedRoles={['admin', 'psychologist']}>
+              <PatientsPage />
+            </RoleGuard>
+          } 
+        />
+
+        {/* Comercial: Admin y Closer */}
+        <Route 
+          path="/commercial" 
+          element={
+            <RoleGuard allowedRoles={['admin', 'closer']}>
+              <CommercialDashboard />
+            </RoleGuard>
+          } 
+        />
+
+        {/* Psicólogo: Solo Psychologist */}
+        <Route 
+          path="/psychologist" 
+          element={
+            <RoleGuard allowedRoles={['psychologist']}>
+              <PsychologistDashboard />
+            </RoleGuard>
+          } 
+        />
+
+        {/* Clínico: Comentado si no existe el archivo Dashboard */}
+        {/* 
+        <Route 
+          path="/clinical" 
+          element={
+            <RoleGuard allowedRoles={['admin', 'psychologist']}>
+              <ClinicalDashboard />
+            </RoleGuard>
+          } 
+        /> 
+        */}
+
+        {/* Ruta comodín */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </AppLayout>
+    </div>
   );
 }
 

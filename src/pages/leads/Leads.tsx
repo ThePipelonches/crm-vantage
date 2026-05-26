@@ -9,14 +9,14 @@ import { Label } from '../../components/ui/label';
 import { PlusCircle, RefreshCw, MoreHorizontal, Phone, Mail, Calendar, MessageCircle, Trash2, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
-import { Textarea } from '../../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 
 const COLUMNS = [
   { id: 'new', title: 'Nuevos', color: 'bg-blue-500' },
   { id: 'contacted', title: 'Contactados', color: 'bg-yellow-500' },
   { id: 'qualified', title: 'Calificados', color: 'bg-purple-500' },
   { id: 'scheduled', title: 'Agendados', color: 'bg-indigo-500' },
-  { id: 'closed', title: 'Cerrados', color: 'bg-green-500' },
+  { id: 'closed', title: 'Cerrados (Venta)', color: 'bg-green-500' },
   { id: 'lost', title: 'Perdidos', color: 'bg-red-500' },
 ];
 
@@ -26,12 +26,19 @@ interface Lead {
   email: string;
   phone: string;
   status: string;
-  notes?: string;
+  sale_total?: number;
+  cash_collected?: number;
+  is_converted?: boolean;
   created_at: string;
-  meta?: any;
 }
 
 function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
+  const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
+  const [saleTotal, setSaleTotal] = useState('');
+  const [cashCollected, setCashCollected] = useState('');
+  const [installmentsCount, setInstallmentsCount] = useState('');
+  const [installmentValue, setInstallmentValue] = useState('');
+
   const handleWhatsApp = () => {
     if (!lead.phone) return;
     let cleanPhone = lead.phone.replace(/\D/g, '');
@@ -47,78 +54,147 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
   };
 
   const handleStatusChange = async (newStatus: string) => {
-    // Si movemos a cerrados, podríamos validar datos aquí si quisiéramos, 
-    // pero lo manejamos mejor al hacer clic en la tarjeta si ya está cerrado.
-    await supabase.from('leads').update({ status: newStatus }).eq('id', lead.id);
-    onUpdate();
+    if (newStatus === 'closed' && !lead.is_converted) {
+      // Si mueve a cerrados y no está convertido, abrir modal de venta
+      setIsSaleModalOpen(true);
+      // Pre-llenar valores si ya existen
+      if (lead.sale_total) setSaleTotal(lead.sale_total.toString());
+      if (lead.cash_collected) setCashCollected(lead.cash_collected.toString());
+      if (lead.installments_count) setInstallmentsCount(lead.installments_count.toString());
+      if (lead.installment_value) setInstallmentValue(lead.installment_value.toString());
+    } else {
+      // Cambio de estado normal
+      await supabase.from('leads').update({ status: newStatus }).eq('id', lead.id);
+      onUpdate();
+    }
   };
 
-  const meta = lead.meta || {};
-  const isClosed = lead.status === 'closed';
+  const handleSaveSale = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const total = parseFloat(saleTotal) || 0;
+    const cash = parseFloat(cashCollected) || 0;
+    const count = parseInt(installmentsCount) || 0;
+    const value = parseFloat(installmentValue) || 0;
+
+    // 1. Actualizar lead con datos financieros y marcar como convertido
+    const { error } = await supabase.from('leads').update({
+      sale_total: total,
+      cash_collected: cash,
+      installments_count: count,
+      installment_value: value,
+      is_converted: true,
+      status: 'closed' // Asegurar estado
+    }).eq('id', lead.id);
+
+    if (error) {
+      alert('Error al guardar la venta: ' + error.message);
+      return;
+    }
+
+    // 2. Crear registro en tabla patients para notificación y asignación
+    await supabase.from('patients').insert({
+      lead_id: lead.id,
+      full_name: lead.full_name,
+      email: lead.email,
+      phone: lead.phone,
+      status: 'pending_assignment',
+      notes: `Convertido desde Lead. Venta: $${total}, Cash: $${cash}`
+    });
+
+    setIsSaleModalOpen(false);
+    onUpdate();
+    alert('¡Venta guardada! El paciente ha sido enviado a la bandeja de "Pacientes" para asignación.');
+  };
+
+  // Si está convertido, no mostramos tarjeta en el pipeline (se va a pacientes)
+  if (lead.is_converted) return null;
 
   return (
-    <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="mb-3 relative group">
-      <Card className={`bg-zinc-900 border-zinc-800 transition-all hover:border-zinc-600 ${isClosed ? 'border-green-900/50 bg-green-950/10' : ''}`}>
-        <CardHeader className="p-3 pb-2">
-          <div className="flex justify-between items-start">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isClosed ? 'bg-green-900 text-green-100' : 'bg-zinc-800 text-zinc-400'}`}>
-                {lead.full_name.charAt(0).toUpperCase()}
+    <>
+      <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="mb-3 relative group">
+        <Card className="bg-zinc-900 border-zinc-800 hover:border-zinc-600 transition-all">
+          <CardHeader className="p-3 pb-2">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-zinc-800 text-zinc-400">
+                  {lead.full_name.charAt(0).toUpperCase()}
+                </div>
+                <CardTitle className="text-sm font-semibold text-white truncate">{lead.full_name}</CardTitle>
               </div>
-              <CardTitle className="text-sm font-semibold text-white truncate">{lead.full_name}</CardTitle>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="h-6 w-6 flex items-center justify-center rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800">
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border-zinc-800 text-white">
-                <DropdownMenuLabel className="text-xs text-zinc-500">Mover a...</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-zinc-800" />
-                {COLUMNS.map((col) => (
-                  <DropdownMenuItem key={col.id} onClick={() => handleStatusChange(col.id)} className="cursor-pointer hover:bg-zinc-800">
-                    <div className={`w-2 h-2 rounded-full mr-2 ${col.color}`} /> {col.title}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="h-6 w-6 flex items-center justify-center rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border-zinc-800 text-white">
+                  <DropdownMenuLabel className="text-xs text-zinc-500">Mover a...</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-zinc-800" />
+                  {COLUMNS.map((col) => (
+                    <DropdownMenuItem key={col.id} onClick={() => handleStatusChange(col.id)} className="cursor-pointer hover:bg-zinc-800">
+                      <div className={`w-2 h-2 rounded-full mr-2 ${col.color}`} /> {col.title}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator className="bg-zinc-800 my-2" />
+                  {lead.status === 'new' && lead.phone && (
+                    <DropdownMenuItem onClick={handleWhatsApp} className="text-green-400 hover:bg-green-900/30">
+                      <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator className="bg-zinc-800" />
+                  <DropdownMenuItem onClick={handleDelete} className="text-red-400 hover:bg-red-900/30">
+                    <Trash2 className="w-4 h-4 mr-2" /> Eliminar
                   </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator className="bg-zinc-800 my-2" />
-                {lead.status === 'new' && lead.phone && (
-                  <DropdownMenuItem onClick={handleWhatsApp} className="text-green-400 hover:bg-green-900/30">
-                    <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator className="bg-zinc-800" />
-                <DropdownMenuItem onClick={handleDelete} className="text-red-400 hover:bg-red-900/30">
-                  <Trash2 className="w-4 h-4 mr-2" /> Eliminar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </CardHeader>
-        <CardContent className="p-3 pt-0 space-y-2">
-          {lead.email && <div className="flex items-center gap-2 text-xs text-zinc-400 truncate"><Mail className="w-3 h-3" /> {lead.email}</div>}
-          {lead.phone && <div className="flex items-center gap-2 text-xs text-zinc-400"><Phone className="w-3 h-3" /> {lead.phone}</div>}
-          
-          {/* Resumen visual si está cerrado */}
-          {isClosed && meta.total_value && (
-            <div className="mt-2 p-2 bg-green-900/20 border border-green-800/50 rounded text-xs text-green-200 space-y-1">
-              <div className="flex justify-between"><span>Total:</span> <span className="font-bold">${meta.total_value.toLocaleString()}</span></div>
-              {meta.cash_collected && <div className="flex justify-between"><span>Pago Inicial:</span> <span>${meta.cash_collected.toLocaleString()}</span></div>}
-              {meta.installments && <div className="flex justify-between"><span>Cuotas:</span> <span>{meta.installments} x ${meta.installment_value?.toLocaleString()}</span></div>}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          )}
+          </CardHeader>
+          <CardContent className="p-3 pt-0 space-y-2">
+            {lead.email && <div className="flex items-center gap-2 text-xs text-zinc-400 truncate"><Mail className="w-3 h-3" /> {lead.email}</div>}
+            {lead.phone && <div className="flex items-center gap-2 text-xs text-zinc-400"><Phone className="w-3 h-3" /> {lead.phone}</div>}
+            <div className="flex items-center justify-between pt-2 border-t border-zinc-800 mt-2">
+              <div className="flex items-center gap-2 text-xs text-zinc-500"><Calendar className="w-3 h-3" /> {new Date(lead.created_at).toLocaleDateString()}</div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-zinc-800 mt-2">
-            <div className="flex items-center gap-2 text-xs text-zinc-500"><Calendar className="w-3 h-3" /> {new Date(lead.created_at).toLocaleDateString()}</div>
-            {lead.status === 'new' && lead.phone && (
-              <button onClick={handleWhatsApp} className="h-6 px-2 text-[10px] bg-green-900/20 border border-green-800 text-green-400 rounded-md flex items-center gap-1">
-                <MessageCircle className="w-3 h-3" /> WhatsApp
-              </button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+      {/* Modal de Venta */}
+      <Dialog open={isSaleModalOpen} onOpenChange={setIsSaleModalOpen}>
+        <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-green-500" /> Registrar Venta y Convertir</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSaveSale} className="space-y-4 mt-2">
+            <div className="p-3 bg-green-900/20 border border-green-800 rounded-md text-xs text-green-300">
+              Al guardar, este lead desaparecerá del pipeline y se creará un perfil de paciente para asignar psicólogo.
+            </div>
+            <div className="space-y-2">
+              <Label>Valor Total del Plan ($)</Label>
+              <Input type="number" value={saleTotal} onChange={(e) => setSaleTotal(e.target.value)} required placeholder="Ej: 1200000" className="bg-zinc-900 border-zinc-800 text-white" />
+            </div>
+            <div className="space-y-2">
+              <Label>Cash Collect / Pago Inicial ($)</Label>
+              <Input type="number" value={cashCollected} onChange={(e) => setCashCollected(e.target.value)} required placeholder="Ej: 400000" className="bg-zinc-900 border-zinc-800 text-white" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>N° Cuotas</Label>
+                <Input type="number" value={installmentsCount} onChange={(e) => setInstallmentsCount(e.target.value)} placeholder="Ej: 4" className="bg-zinc-900 border-zinc-800 text-white" />
+              </div>
+              <div className="space-y-2">
+                <Label>Valor por Cuota ($)</Label>
+                <Input type="number" value={installmentValue} onChange={(e) => setInstallmentValue(e.target.value)} placeholder="Ej: 200000" className="bg-zinc-900 border-zinc-800 text-white" />
+              </div>
+            </div>
+            <DialogFooter className="pt-4">
+              <button type="button" onClick={() => setIsSaleModalOpen(false)} className="h-9 px-4 text-zinc-400 hover:text-white">Cancelar</button>
+              <button type="submit" className="h-9 px-4 bg-green-600 text-white hover:bg-green-700 rounded-md font-medium">Confirmar Venta y Convertir</button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -126,19 +202,14 @@ export default function LeadsPage() {
   const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
-  // Estado para nuevo lead manual
-  const [newName, setNewName] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [newPhone, setNewPhone] = useState('');
-
-  // Estado para edición de lead cerrado
-  const [editingLead, setEditingLead] = useState<Lead | null>(null);
-  const [closeData, setCloseData] = useState({ total_value: '', cash_collected: '', installments: '', installment_value: '' });
 
   const loadLeads = async () => {
-    const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+    // Solo cargamos leads que NO han sido convertidos aún
+    const { data, error } = await supabase.from('leads')
+      .select('*')
+      .eq('is_converted', false) 
+      .order('created_at', { ascending: false });
+    
     if (!error && data) setLeads(data);
     setLoading(false);
   };
@@ -150,51 +221,6 @@ export default function LeadsPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleCreateLead = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName) return;
-    await supabase.from('leads').insert({
-      full_name: newName,
-      email: newEmail || undefined,
-      phone: newPhone || undefined,
-      source: 'manual',
-      status: 'new',
-      setter_id: user?.id
-    });
-    setIsDialogOpen(false);
-    setNewName(''); setNewEmail(''); setNewPhone('');
-  };
-
-  const handleOpenCloseModal = (lead: Lead) => {
-    setEditingLead(lead);
-    const meta = lead.meta || {};
-    setCloseData({
-      total_value: meta.total_value || '',
-      cash_collected: meta.cash_collected || '',
-      installments: meta.installments || '',
-      installment_value: meta.installment_value || ''
-    });
-  };
-
-  const handleSaveCloseData = async () => {
-    if (!editingLead) return;
-    
-    const meta = {
-      total_value: Number(closeData.total_value) || 0,
-      cash_collected: Number(closeData.cash_collected) || 0,
-      installments: Number(closeData.installments) || 0,
-      installment_value: Number(closeData.installment_value) || 0
-    };
-
-    await supabase.from('leads').update({ 
-      status: 'closed',
-      meta 
-    }).eq('id', editingLead.id);
-
-    setEditingLead(null);
-    loadLeads();
-  };
-
   const columnsData = COLUMNS.map(col => ({ ...col, items: leads.filter(l => l.status === col.id) }));
 
   return (
@@ -202,40 +228,12 @@ export default function LeadsPage() {
       <div className="flex justify-between items-center mb-6 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-white">Pipeline de Leads</h1>
-          <p className="text-sm text-zinc-400 mt-1">Gestiona tus leads. Al mover a "Cerrados", ingresa los valores de venta.</p>
+          <p className="text-sm text-zinc-400 mt-1">Gestiona tus leads. Al cerrar venta, se convierten en Pacientes.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={loadLeads} disabled={loading} className="border-zinc-700 text-zinc-300">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <button className="h-9 px-4 bg-white text-black hover:bg-zinc-200 rounded-md text-sm font-medium flex items-center gap-2">
-                <PlusCircle className="w-4 h-4" /> Nuevo Lead
-              </button>
-            </DialogTrigger>
-            <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-md">
-              <DialogHeader><DialogTitle>Agregar Nuevo Lead</DialogTitle></DialogHeader>
-              <form onSubmit={handleCreateLead} className="space-y-4 mt-2">
-                <div className="space-y-2">
-                  <Label>Nombre Completo *</Label>
-                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan Pérez" className="bg-zinc-900 border-zinc-800 text-white" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="juan@ejemplo.com" className="bg-zinc-900 border-zinc-800 text-white" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Teléfono</Label>
-                  <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+57 300 123 4567" className="bg-zinc-900 border-zinc-800 text-white" />
-                </div>
-                <DialogFooter className="pt-4">
-                  <button type="button" onClick={() => setIsDialogOpen(false)} className="h-9 px-4 text-zinc-400 hover:text-white">Cancelar</button>
-                  <button type="submit" className="h-9 px-4 bg-white text-black hover:bg-zinc-200 rounded-md font-medium">Guardar Lead</button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 
@@ -257,11 +255,7 @@ export default function LeadsPage() {
                 </div>
                 <div className="p-2 flex-1 overflow-y-auto min-h-[150px]">
                   <AnimatePresence>
-                    {col.items.map((lead) => (
-                      <div key={lead.id} onClick={() => lead.status === 'closed' ? handleOpenCloseModal(lead) : null} className={lead.status === 'closed' ? 'cursor-pointer' : ''}>
-                        <LeadCard lead={lead} onUpdate={loadLeads} />
-                      </div>
-                    ))}
+                    {col.items.map((lead) => (<LeadCard key={lead.id} lead={lead} onUpdate={loadLeads} />))}
                   </AnimatePresence>
                   {col.items.length === 0 && (<div className="h-24 flex items-center justify-center text-xs text-zinc-600 italic border-2 border-dashed border-zinc-800/50 rounded-lg m-1">Sin leads</div>)}
                 </div>
@@ -270,40 +264,6 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
-
-      {/* Modal para editar datos de venta (Cerrados) */}
-      <Dialog open={!!editingLead} onOpenChange={(open) => !open && setEditingLead(null)}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-green-500" />
-              Datos de Venta - {editingLead?.full_name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-4">
-            <div className="space-y-2">
-              <Label>Valor Total Plan ($)</Label>
-              <Input type="number" value={closeData.total_value} onChange={(e) => setCloseData({...closeData, total_value: e.target.value})} className="bg-zinc-900 border-zinc-800 text-white" placeholder="0" />
-            </div>
-            <div className="space-y-2">
-              <Label>Cash Collect / Pago Inicial ($)</Label>
-              <Input type="number" value={closeData.cash_collected} onChange={(e) => setCloseData({...closeData, cash_collected: e.target.value})} className="bg-zinc-900 border-zinc-800 text-white" placeholder="0" />
-            </div>
-            <div className="space-y-2">
-              <Label>Número de Cuotas</Label>
-              <Input type="number" value={closeData.installments} onChange={(e) => setCloseData({...closeData, installments: e.target.value})} className="bg-zinc-900 border-zinc-800 text-white" placeholder="Ej: 12" />
-            </div>
-            <div className="space-y-2">
-              <Label>Valor por Cuota ($)</Label>
-              <Input type="number" value={closeData.installment_value} onChange={(e) => setCloseData({...closeData, installment_value: e.target.value})} className="bg-zinc-900 border-zinc-800 text-white" placeholder="0" />
-            </div>
-          </div>
-          <DialogFooter>
-            <button onClick={() => setEditingLead(null)} className="h-9 px-4 text-zinc-400 hover:text-white">Cancelar</button>
-            <button onClick={handleSaveCloseData} className="h-9 px-4 bg-green-600 text-white hover:bg-green-700 rounded-md font-medium">Guardar Venta</button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

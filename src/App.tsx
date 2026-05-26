@@ -1,124 +1,129 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
-import Dashboard from './pages/admin/Dashboard';
 import LeadsPage from './pages/leads/Leads';
 import PatientsPage from './pages/patients/PatientsPage';
 import CommercialDashboard from './pages/commercial/Dashboard';
+import ClinicalDashboard from './pages/clinical/Dashboard';
 import PsychologistDashboard from './pages/psychologist/Dashboard';
+import AdminDashboard from './pages/admin/Dashboard';
 
-// Componente de Protección de Roles
-function RoleGuard({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
+// Componente de Protección de Rutas por Rol
+function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-zinc-950 text-white">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      <div className="h-screen w-full flex items-center justify-center bg-black text-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
-  if (!user || !allowedRoles.includes(user.role || '')) {
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!allowedRoles.includes(user.role || '')) {
     return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
 }
 
-// Componente Principal de Rutas
+// Componente Principal de Rutas (Debe estar dentro de AuthProvider)
 function AppRoutes() {
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-zinc-950 text-white">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      <div className="h-screen w-full flex items-center justify-center bg-black text-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
-  // Si no hay usuario, ir a Login (Asumimos que LoginPage existe o redirigimos a home si no)
-  // Si no tienes LoginPage funcionando, podemos poner un mensaje simple o redirigir a una ruta pública
-  // Por seguridad, si no hay user, mostramos un mensaje o redirigimos. 
-  // Ajusta esto si tienes una página de login funcional.
+  // Si no hay usuario, mostrar solo Login
   if (!user) {
-     // Opción A: Redirigir a una ruta de login si existe
-     // return <Navigate to="/login" replace />;
-     
-     // Opción B (Segura temporal): Mostrar mensaje si no hay login implementado aún
-     return (
-       <div className="flex h-screen w-full flex-col items-center justify-center bg-zinc-950 text-white space-y-4">
-         <h1 className="text-2xl font-bold">Bienvenido a Vantage CRM</h1>
-         <p className="text-zinc-400">Por favor inicia sesión.</p>
-         {/* Aquí iría tu botón de Login si tuvieras la página */}
-       </div>
-     );
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
   }
 
-  // Layout Simple (Reemplaza a AppLayout para evitar errores de children)
+  // Si hay usuario, mostrar la App con Layout simple
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
-      {/* Barra de navegación simple o Header podría ir aquí */}
-      <header className="border-b border-zinc-800 p-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold text-white">Vantage CRM</h1>
-        <button 
-          onClick={() => window.location.href = '/'} // Logout simple recargando o usando auth si está disponible
-          className="text-sm text-zinc-400 hover:text-white"
-        >
-          Salir
-        </button>
-      </header>
+    <div className="min-h-screen bg-black text-white font-sans">
+      {/* Aquí iría tu Sidebar/TopBar si los importas aquí, o usas un Layout simple */}
+      {/* Por ahora, renderizamos directo para evitar errores de componentes rotos */}
       
-      <main className="flex-1 overflow-auto p-6">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          
-          {/* Leads: Admin y Closer */}
-          <Route 
-            path="/leads" 
-            element={
-              <RoleGuard allowedRoles={['admin', 'closer']}>
-                <LeadsPage />
-              </RoleGuard>
-            } 
-          />
-          
-          {/* Pacientes: Admin y Psicólogo */}
-          <Route 
-            path="/patients" 
-            element={
-              <RoleGuard allowedRoles={['admin', 'psychologist']}>
-                <PatientsPage />
-              </RoleGuard>
-            } 
-          />
-          
-          {/* Comercial: Admin y Closer */}
-          <Route 
-            path="/commercial" 
-            element={
-              <RoleGuard allowedRoles={['admin', 'closer']}>
-                <CommercialDashboard />
-              </RoleGuard>
-            } 
-          />
-          
-          {/* Psicólogo: Solo Psicólogo */}
-          <Route 
-            path="/psychologist" 
-            element={
-              <RoleGuard allowedRoles={['psychologist']}>
-                <PsychologistDashboard />
-              </RoleGuard>
-            } 
-          />
+      <Routes>
+        <Route path="/" element={<AdminDashboard />} />
+        
+        {/* Admin & Closer */}
+        <Route path="/leads" element={
+          <ProtectedRoute allowedRoles={['admin', 'closer']}>
+            <LeadsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/commercial" element={
+          <ProtectedRoute allowedRoles={['admin', 'closer']}>
+            <CommercialDashboard />
+          </ProtectedRoute>
+        } />
 
-          {/* Ruta comodín para 404 */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
+        {/* Admin & Psychologist */}
+        <Route path="/patients" element={
+          <ProtectedRoute allowedRoles={['admin', 'psychologist']}>
+            <PatientsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/clinical" element={
+          <ProtectedRoute allowedRoles={['admin', 'psychologist']}>
+            <ClinicalDashboard />
+          </ProtectedRoute>
+        } />
+
+        {/* Solo Psychologist */}
+        <Route path="/psychologist" element={
+          <ProtectedRoute allowedRoles={['psychologist']}>
+            <PsychologistDashboard />
+          </ProtectedRoute>
+        } />
+
+        {/* Catch all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </div>
   );
+}
+
+// Componente Login separado para evitar ciclos
+function LoginPage() {
+  // Importamos dinámicamente o asumimos que existe en pages/auth
+  // Si no tienes LoginPage.tsx, usa un placeholder temporal
+  const LoginComp = () => {
+     // Placeholder simple si no existe el archivo aún
+     return (
+       <div className="h-screen flex items-center justify-center bg-zinc-950">
+         <div className="text-center">
+           <h1 className="text-4xl font-bold text-white mb-4">Vantage CRM</h1>
+           <p className="text-zinc-400">Por favor inicia sesión (Componente Login pendiente)</p>
+           <button onClick={() => window.location.href='/'} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded">Ir al Home</button>
+         </div>
+       </div>
+     )
+  };
+  
+  // Intenta importar tu LoginPage real si existe
+  try {
+    // Nota: En un entorno real harías import dynamic, aquí usamos el placeholder seguro
+    return <LoginComp />;
+  } catch {
+    return <LoginComp />;
+  }
 }
 
 export default function App() {

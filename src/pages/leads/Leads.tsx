@@ -45,22 +45,22 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
     if (!lead.phone) return;
     let cleanPhone = lead.phone.replace(/\D/g, '');
     if (cleanPhone.length === 10 && !cleanPhone.startsWith('57')) cleanPhone = '57' + cleanPhone;
-    const text = `Hola ${lead.full_name}, te contacto respecto a tu interés en Vantage.`;
+    const text = `Hola ${lead.full_name}, te contacto respecto a tu interÃ©s en Vantage.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleDelete = async () => {
-    if (!confirm('¿Eliminar lead?')) return;
+    if (!confirm('Â¿Eliminar lead?')) return;
     await supabase.from('leads').delete().eq('id', lead.id);
     onUpdate();
   };
 
   const handleStatusChange = async (newStatus: string) => {
-    // Si mueve a Cerrados y no tiene datos de venta, abrir modal (lógica manejada en el padre o aquí si es simple)
-    // Para simplificar, actualizamos estado y si es 'closed' sin datos, el padre podría manejarlo, 
-    // pero aquí haremos el update directo. Si necesita datos, el usuario debe llenarlos antes o después.
-    // Mejora: Si va a closed y no tiene sale_total, podríamos forzar el modal desde el padre.
-    // Por ahora, permitimos el cambio y si está vacío, se puede editar luego o convertir.
+    // Si mueve a Cerrados y no tiene datos de venta, abrir modal (lÃ³gica manejada en el padre o aquÃ­ si es simple)
+    // Para simplificar, actualizamos estado y si es 'closed' sin datos, el padre podrÃ­a manejarlo, 
+    // pero aquÃ­ haremos el update directo. Si necesita datos, el usuario debe llenarlos antes o despuÃ©s.
+    // Mejora: Si va a closed y no tiene sale_total, podrÃ­amos forzar el modal desde el padre.
+    // Por ahora, permitimos el cambio y si estÃ¡ vacÃ­o, se puede editar luego o convertir.
     
     await supabase.from('leads').update({ status: newStatus }).eq('id', lead.id);
     onUpdate();
@@ -109,7 +109,7 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
           {lead.email && <div className="flex items-center gap-2 text-xs text-zinc-400 truncate"><Mail className="w-3 h-3" /> {lead.email}</div>}
           {lead.phone && <div className="flex items-center gap-2 text-xs text-zinc-400"><Phone className="w-3 h-3" /> {lead.phone}</div>}
           
-          {/* Resumen de venta si está cerrado */}
+          {/* Resumen de venta si estÃ¡ cerrado */}
           {lead.status === 'closed' && lead.sale_total && (
             <div className="mt-2 pt-2 border-t border-zinc-800 text-xs space-y-1">
               <div className="flex justify-between text-zinc-300">
@@ -163,7 +163,7 @@ export default function LeadsPage() {
   const [installmentValue, setInstallmentValue] = useState<number | ''>('');
 
   const loadLeads = async () => {
-    // Solo cargar leads que NO estén convertidos a pacientes aún
+    // Solo cargar leads que NO estÃ©n convertidos a pacientes aÃºn
     const { data, error } = await supabase.from('leads')
       .select('*')
       .eq('is_converted', false) // Filtrar los que ya son pacientes
@@ -239,11 +239,11 @@ export default function LeadsPage() {
 
     if (patientError) {
       alert('Error al crear paciente: ' + patientError.message);
-      // Rollback opcional si falla la creación del paciente
+      // Rollback opcional si falla la creaciÃ³n del paciente
       return;
     }
 
-    alert('¡Venta guardada y paciente creado exitosamente!');
+    alert('Â¡Venta guardada y paciente creado exitosamente!');
     setIsSaleModalOpen(false);
     setSelectedLeadForSale(null);
     setSaleTotal(''); setCashCollected(''); setInstallmentsCount(''); setInstallmentValue('');
@@ -257,7 +257,7 @@ export default function LeadsPage() {
       <div className="flex justify-between items-center mb-6 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-white">Pipeline de Leads</h1>
-          <p className="text-sm text-zinc-400 mt-1">Gestiona tus leads. Al cerrar una venta, se crea el paciente automáticamente.</p>
+          <p className="text-sm text-zinc-400 mt-1">Gestiona tus leads. Al cerrar una venta, se crea el paciente automÃ¡ticamente.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={loadLeads} disabled={loading} className="border-zinc-700 text-zinc-300">
@@ -272,9 +272,9 @@ export default function LeadsPage() {
             <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-md">
               <DialogHeader><DialogTitle>Agregar Nuevo Lead</DialogTitle></DialogHeader>
               <form onSubmit={handleCreateLead} className="space-y-4 mt-2">
-                <div className="space-y-2"><Label>Nombre Completo *</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan Pérez" className="bg-zinc-900 border-zinc-800 text-white" /></div>
+                <div className="space-y-2"><Label>Nombre Completo *</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan PÃ©rez" className="bg-zinc-900 border-zinc-800 text-white" /></div>
                 <div className="space-y-2"><Label>Email</Label><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="juan@ejemplo.com" className="bg-zinc-900 border-zinc-800 text-white" /></div>
-                <div className="space-y-2"><Label>Teléfono</Label><Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+57 300 123 4567" className="bg-zinc-900 border-zinc-800 text-white" /></div>
+                <div className="space-y-2"><Label>TelÃ©fono</Label><Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+57 300 123 4567" className="bg-zinc-900 border-zinc-800 text-white" /></div>
                 <DialogFooter className="pt-4">
                   <button type="button" onClick={() => setIsDialogOpen(false)} className="h-9 px-4 text-zinc-400 hover:text-white">Cancelar</button>
                   <button type="submit" className="h-9 px-4 bg-white text-black hover:bg-zinc-200 rounded-md font-medium">Guardar Lead</button>
@@ -313,14 +313,14 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {/* MODAL DE VENTA Y CONVERSIÓN */}
+      {/* MODAL DE VENTA Y CONVERSIÃ“N */}
       <Dialog open={isSaleModalOpen} onOpenChange={setIsSaleModalOpen}>
         <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-400">
               <DollarSign className="w-5 h-5" /> Cerrar Venta y Crear Paciente
             </DialogTitle>
-            <p className="text-sm text-zinc-400">Completa la información financiera para {selectedLeadForSale?.full_name}.</p>
+            <p className="text-sm text-zinc-400">Completa la informaciÃ³n financiera para {selectedLeadForSale?.full_name}.</p>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
@@ -334,10 +334,10 @@ export default function LeadsPage() {
               </div>
             </div>
             <div className="p-3 bg-zinc-900 rounded-lg border border-zinc-800 space-y-3">
-              <Label className="text-zinc-300 flex items-center gap-2"><CreditCard className="w-4 h-4" /> Información de Cuotas (Opcional)</Label>
+              <Label className="text-zinc-300 flex items-center gap-2"><CreditCard className="w-4 h-4" /> InformaciÃ³n de Cuotas (Opcional)</Label>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs">Número de Cuotas</Label>
+                  <Label className="text-xs">NÃºmero de Cuotas</Label>
                   <Input type="number" value={installmentsCount} onChange={(e) => setInstallmentsCount(Number(e.target.value))} className="bg-zinc-950 border-zinc-800 text-white h-9" placeholder="Ej: 6" />
                 </div>
                 <div className="space-y-2">

@@ -109,6 +109,9 @@ function AppRoutes() {
           } 
         />
       </Route>
+
+
+
       <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
     </Routes>
   );

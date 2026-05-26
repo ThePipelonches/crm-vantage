@@ -6,19 +6,9 @@ import { Input } from '../../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
-import { 
-  PlusCircle, RefreshCw, MoreHorizontal, Phone, Mail, Calendar, User, 
-  MessageCircle, AlertCircle, Trash2 
-} from 'lucide-react';
+import { PlusCircle, RefreshCw, MoreHorizontal, Phone, Mail, Calendar, MessageCircle, AlertCircle, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 
 const COLUMNS = [
   { id: 'new', title: 'Nuevos', color: 'bg-blue-500' },
@@ -43,10 +33,7 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
   const [isUrgent, setIsUrgent] = useState(false);
 
   useEffect(() => {
-    if (lead.status !== 'new') {
-      setIsUrgent(false);
-      return;
-    }
+    if (lead.status !== 'new') { setIsUrgent(false); return; }
     const checkUrgency = () => {
       const now = new Date();
       const created = new Date(lead.created_at);
@@ -147,7 +134,6 @@ export default function LeadsPage() {
   const [newEmail, setNewEmail] = useState('');
   const [newPhone, setNewPhone] = useState('');
   
-  // SOLUCIÓN DEFINITIVA: Usar ref para evitar doble suscripción en React 18
   const channelRef = useRef<any>(null);
 
   const loadLeads = async () => {
@@ -158,23 +144,13 @@ export default function LeadsPage() {
 
   useEffect(() => {
     loadLeads();
-
-    // Verificar si ya existe un canal activo
-    if (channelRef.current) {
-      return; // Si ya existe, no hacer nada
+    
+    if (!channelRef.current) {
+      channelRef.current = supabase.channel('public:leads')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => loadLeads())
+        .subscribe();
     }
 
-    // Crear nuevo canal solo si no existe
-    const channel = supabase.channel('public:leads');
-    channelRef.current = channel;
-
-    channel
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
-        loadLeads();
-      })
-      .subscribe();
-
-    // Limpieza al desmontar
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
@@ -205,7 +181,7 @@ export default function LeadsPage() {
       <div className="flex justify-between items-center mb-6 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-white">Pipeline de Leads</h1>
-          <p className="text-sm text-zinc-400 mt-1">Gestiona tus leads. <span className="text-red-400 font-medium">Alerta si >5 min sin contactar.</span></p>
+          <p className="text-sm text-zinc-400 mt-1">Gestiona tus leads. <span className="text-red-400 font-medium">Alerta si &gt;5 min sin contactar.</span></p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={loadLeads} disabled={loading} className="border-zinc-700 text-zinc-300">

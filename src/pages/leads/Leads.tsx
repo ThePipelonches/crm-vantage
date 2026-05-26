@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui/button';
@@ -62,12 +62,12 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
     if (!lead.phone) return;
     let cleanPhone = lead.phone.replace(/\D/g, '');
     if (cleanPhone.length === 10 && !cleanPhone.startsWith('57')) cleanPhone = '57' + cleanPhone;
-    const text = `Hola ${lead.full_name}, te contacto respecto a tu interÃ©s en Vantage.`;
+    const text = `Hola ${lead.full_name}, te contacto respecto a tu interés en Vantage.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleDelete = async () => {
-    if (!confirm('Â¿Eliminar lead?')) return;
+    if (!confirm('¿Eliminar lead?')) return;
     await supabase.from('leads').delete().eq('id', lead.id);
     onUpdate();
   };
@@ -81,7 +81,7 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
     <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="mb-3 relative group">
       {isUrgent && (
         <div className="absolute -top-2 -right-2 z-20 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg animate-pulse border-2 border-black">
-          <AlertCircle className="w-3 h-3 inline mr-1" /> Â¡LLAMAR YA!
+          <AlertCircle className="w-3 h-3 inline mr-1" /> ¡LLAMAR YA!
         </div>
       )}
       <Card className={`bg-zinc-900 border-zinc-800 transition-all ${isUrgent ? 'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'hover:border-zinc-600'}`}>
@@ -146,7 +146,9 @@ export default function LeadsPage() {
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPhone, setNewPhone] = useState('');
-  const channelRef = useState<any>(null);
+  
+  // SOLUCIÓN DEFINITIVA: Usar ref para evitar doble suscripción en React 18
+  const channelRef = useRef<any>(null);
 
   const loadLeads = async () => {
     const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
@@ -156,16 +158,27 @@ export default function LeadsPage() {
 
   useEffect(() => {
     loadLeads();
-    if (!channelRef[0]) {
-      const channel = supabase.channel('public:leads')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => loadLeads())
-        .subscribe();
-      channelRef[1](channel);
+
+    // Verificar si ya existe un canal activo
+    if (channelRef.current) {
+      return; // Si ya existe, no hacer nada
     }
+
+    // Crear nuevo canal solo si no existe
+    const channel = supabase.channel('public:leads');
+    channelRef.current = channel;
+
+    channel
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
+        loadLeads();
+      })
+      .subscribe();
+
+    // Limpieza al desmontar
     return () => {
-      if (channelRef[0]) {
-        supabase.removeChannel(channelRef[0]);
-        channelRef[1](null);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
     };
   }, []);
@@ -192,7 +205,7 @@ export default function LeadsPage() {
       <div className="flex justify-between items-center mb-6 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-white">Pipeline de Leads</h1>
-          <p className="text-sm text-zinc-400 mt-1">Gestiona tus leads. <span className="text-red-400 font-medium">Alerta si &gt;5 min sin contactar.</span></p>
+          <p className="text-sm text-zinc-400 mt-1">Gestiona tus leads. <span className="text-red-400 font-medium">Alerta si >5 min sin contactar.</span></p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={loadLeads} disabled={loading} className="border-zinc-700 text-zinc-300">

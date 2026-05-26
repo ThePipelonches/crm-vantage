@@ -50,12 +50,12 @@ function LeadCard({ lead, onUpdate, onOpenSaleModal }: { lead: Lead; onUpdate: (
     if (!lead.phone) return;
     let cleanPhone = lead.phone.replace(/\D/g, '');
     if (cleanPhone.length === 10 && !cleanPhone.startsWith('57')) cleanPhone = '57' + cleanPhone;
-    const text = `Hola ${lead.full_name}, te contacto respecto a tu interés en Vantage.`;
+    const text = `Hola ${lead.full_name}, te contacto respecto a tu interÃ©s en Vantage.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleDelete = async () => {
-    if (!confirm('¿Eliminar lead?')) return;
+    if (!confirm('Â¿Eliminar lead?')) return;
     await supabase.from('leads').delete().eq('id', lead.id);
     onUpdate();
   };
@@ -67,9 +67,68 @@ function LeadCard({ lead, onUpdate, onOpenSaleModal }: { lead: Lead; onUpdate: (
       return;
     }
 
-    // Actualización optimista pero segura
+    // ActualizaciÃ³n optimista pero segura
     await supabase.from('leads').update({ status: newStatus }).eq('id', lead.id);
     onUpdate();
+  };
+
+
+  const handleStatusChange = async (leadId: string, newStatus: string) => {
+    if (newStatus === 'closed') {
+      const leadToClose = leads.find(l => l.id === leadId);
+      if (!leadToClose?.sale_total || !leadToClose?.cash_collected) {
+        setClosingLeadId(leadId);
+        setIsSaleModalOpen(true);
+        return;
+      }
+    }
+    const { error } = await supabase.from('leads').update({ status: newStatus }).eq('id', leadId);
+    if (error) alert('Error: ' + error.message);
+  };
+
+  const confirmSaleAndClose = async () => {
+    if (!closingLeadId || !saleTotal || !cashCollected) {
+      alert('Faltan datos obligatorios');
+      return;
+    }
+    const leadData = leads.find(l => l.id === closingLeadId);
+    if (!leadData) return;
+
+    // 1. Actualizar Lead
+    const { error: leadErr } = await supabase.from('leads').update({
+      status: 'closed',
+      sale_total: Number(saleTotal),
+      cash_collected: Number(cashCollected),
+      installments_count: installmentsCount ? Number(installmentsCount) : 0,
+      installment_value: installmentValue ? Number(installmentValue) : 0,
+      is_converted: true
+    }).eq('id', closingLeadId);
+
+    if (leadErr) { alert('Error cerrando lead: ' + leadErr.message); return; }
+
+    // 2. CREAR PACIENTE (Esto es lo que faltaba o fallaba)
+    const { error: patientErr } = await supabase.from('patients').insert({
+      full_name: leadData.full_name,
+      email: leadData.email,
+      phone: leadData.phone || '',
+      status: 'pending_assignment',
+      sale_total: Number(saleTotal),
+      cash_collected: Number(cashCollected),
+      installments_count: installmentsCount ? Number(installmentsCount) : 0,
+      installment_value: installmentValue ? Number(installmentValue) : 0,
+      notes: leadData.notes || 'Convertido desde ventas',
+      psychologist_id: null
+    });
+
+    if (patientErr) {
+      alert('Lead cerrado, pero falló creación de paciente: ' + patientErr.message);
+    } else {
+      alert('✅ Venta cerrada y Paciente creado. Revisa la página de Pacientes.');
+    }
+
+    setIsSaleModalOpen(false);
+    setClosingLeadId(null);
+    setSaleTotal(''); setCashCollected(''); setInstallmentsCount(''); setInstallmentValue('');
   };
 
   return (
@@ -125,7 +184,7 @@ function LeadCard({ lead, onUpdate, onOpenSaleModal }: { lead: Lead; onUpdate: (
           {lead.email && <div className="flex items-center gap-2 text-xs text-zinc-400 truncate"><Mail className="w-3 h-3" /> {lead.email}</div>}
           {lead.phone && <div className="flex items-center gap-2 text-xs text-zinc-400"><Phone className="w-3 h-3" /> {lead.phone}</div>}
           
-          {/* Resumen de venta si está cerrado */}
+          {/* Resumen de venta si estÃ¡ cerrado */}
           {lead.status === 'closed' && lead.sale_total && (
             <div className="mt-2 pt-2 border-t border-zinc-800 text-xs text-green-400">
               <div className="flex justify-between"><span>Total:</span> <span>${lead.sale_total.toLocaleString()}</span></div>
@@ -170,7 +229,7 @@ export default function LeadsPage() {
   const loadLeads = async () => {
     const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
     if (!error && data) {
-      // Aseguramos que cada lead tenga un ID único y correcto
+      // Aseguramos que cada lead tenga un ID Ãºnico y correcto
       setLeads(data);
     }
     setLoading(false);
@@ -230,7 +289,7 @@ export default function LeadsPage() {
       return;
     }
 
-    // 2. Crear Paciente automáticamente
+    // 2. Crear Paciente automÃ¡ticamente
     const { error: patientError } = await supabase.from('patients').insert({
       full_name: currentLeadForSale.full_name,
       email: currentLeadForSale.email,
@@ -242,14 +301,14 @@ export default function LeadsPage() {
 
     if (patientError) {
       console.error('Error creando paciente:', patientError);
-      alert('Lead actualizado, pero falló la creación del paciente.');
+      alert('Lead actualizado, pero fallÃ³ la creaciÃ³n del paciente.');
     } else {
-      // Éxito total
+      // Ã‰xito total
       setSaleModalOpen(false);
       setCurrentLeadForSale(null);
       loadLeads();
-      // Opcional: Podrías navegar a la página de pacientes o mostrar toast
-      alert('Venta registrada y Paciente creado exitosamente. Revisa la sección de Pacientes para asignar psicólogo.');
+      // Opcional: PodrÃ­as navegar a la pÃ¡gina de pacientes o mostrar toast
+      alert('Venta registrada y Paciente creado exitosamente. Revisa la secciÃ³n de Pacientes para asignar psicÃ³logo.');
     }
   };
 
@@ -280,14 +339,14 @@ export default function LeadsPage() {
               <form onSubmit={handleCreateLead} className="space-y-4 mt-2">
                 <div className="space-y-2">
                   <Label>Nombre Completo *</Label>
-                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan Pérez" className="bg-zinc-900 border-zinc-800 text-white" />
+                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan PÃ©rez" className="bg-zinc-900 border-zinc-800 text-white" />
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
                   <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="juan@ejemplo.com" className="bg-zinc-900 border-zinc-800 text-white" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Teléfono</Label>
+                  <Label>TelÃ©fono</Label>
                   <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+57 300 123 4567" className="bg-zinc-900 border-zinc-800 text-white" />
                 </div>
                 <DialogFooter className="pt-4">
@@ -339,7 +398,7 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {/* Modal de Confirmación de Venta */}
+      {/* Modal de ConfirmaciÃ³n de Venta */}
       <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
         <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-lg">
           <DialogHeader>
@@ -349,7 +408,7 @@ export default function LeadsPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
-            <p className="text-sm text-zinc-400">Estás cerrando el lead: <strong className="text-white">{currentLeadForSale?.full_name}</strong>. Al confirmar, se creará el perfil del paciente.</p>
+            <p className="text-sm text-zinc-400">EstÃ¡s cerrando el lead: <strong className="text-white">{currentLeadForSale?.full_name}</strong>. Al confirmar, se crearÃ¡ el perfil del paciente.</p>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -375,10 +434,10 @@ export default function LeadsPage() {
             </div>
 
             <div className="p-3 bg-zinc-900 rounded-lg border border-zinc-800">
-              <Label className="text-xs text-zinc-500 mb-2 block">¿Pago a cuotas? (Opcional)</Label>
+              <Label className="text-xs text-zinc-500 mb-2 block">Â¿Pago a cuotas? (Opcional)</Label>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <span className="text-xs text-zinc-400">Número de Cuotas</span>
+                  <span className="text-xs text-zinc-400">NÃºmero de Cuotas</span>
                   <Input 
                     type="number" 
                     value={installmentsCount} 

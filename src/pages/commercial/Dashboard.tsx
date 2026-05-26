@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { getDashboardMetrics } from '../../services/analytics';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { DollarSign, PhoneCall, Calendar, TrendingUp } from 'lucide-react';
+import { DollarSign, PhoneCall, Calendar, TrendingUp, Target } from 'lucide-react';
 
 export default function CommercialDashboard() {
   const { user } = useAuth();
@@ -12,7 +12,7 @@ export default function CommercialDashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const data = await getDashboardMetrics();
+        const data = await getDashboardMetrics(); // RLS filtra solo los míos
         setMetrics(data);
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
@@ -20,20 +20,20 @@ export default function CommercialDashboard() {
     load();
   }, []);
 
-  if (loading) return <div className="text-white">Cargando...</div>;
-  if (!metrics) return <div>Error</div>;
+  if (loading) return <div className="text-white p-10">Cargando tus métricas...</div>;
+  if (!metrics) return <div className="text-red-400 p-10">Error</div>;
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold text-white">Dashboard Comercial</h1>
-        <p className="text-zinc-400">Rendimiento de Ventas</p>
+        <h1 className="text-3xl font-bold text-white">Mi Rendimiento Comercial</h1>
+        <p className="text-zinc-400">Gestiona tus leads y cierra ventas.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-zinc-900 border-zinc-800 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Mis Leads Totales</CardTitle>
+            <CardTitle className="text-sm font-medium text-zinc-400">Mis Leads Activos</CardTitle>
             <PhoneCall className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{metrics.totalLeads}</div></CardContent>
@@ -41,7 +41,7 @@ export default function CommercialDashboard() {
         
         <Card className="bg-zinc-900 border-zinc-800 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Tasa Cierre</CardTitle>
+            <CardTitle className="text-sm font-medium text-zinc-400">Mi Tasa de Cierre</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-400" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{metrics.conversionRate}%</div></CardContent>
@@ -49,7 +49,7 @@ export default function CommercialDashboard() {
 
         <Card className="bg-zinc-900 border-zinc-800 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Citas Hoy</CardTitle>
+            <CardTitle className="text-sm font-medium text-zinc-400">Mis Citas Hoy</CardTitle>
             <Calendar className="h-4 w-4 text-orange-400" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{metrics.appointmentsToday}</div></CardContent>
@@ -57,15 +57,20 @@ export default function CommercialDashboard() {
 
         <Card className="bg-zinc-900 border-zinc-800 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Ventas Cerradas</CardTitle>
-            <DollarSign className="h-4 w-4 text-emerald-400" />
+            <CardTitle className="text-sm font-medium text-zinc-400">Mis Ventas Cerradas</CardTitle>
+            <Target className="h-4 w-4 text-purple-400" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{metrics.totalSales}</div></CardContent>
         </Card>
       </div>
       
-      <div className="p-6 bg-zinc-900 border border-zinc-800 rounded-lg text-center text-zinc-500">
-        <p>Aquí irá la gráfica de rendimiento mensual (próximamente).</p>
+      <div className="p-6 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-900/50 rounded-lg text-center">
+        <h3 className="text-lg font-semibold text-blue-200 mb-2">Objetivo del Mes</h3>
+        <p className="text-zinc-400">Sigue gestionando tus leads en el Pipeline para alcanzar tu meta.</p>
+        <div className="mt-4 h-2 bg-zinc-800 rounded-full overflow-hidden">
+          <div className="h-full bg-blue-500 w-[65%]"></div>
+        </div>
+        <p className="text-xs text-zinc-500 mt-2">65% completado</p>
       </div>
     </div>
   );

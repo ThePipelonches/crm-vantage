@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { getDashboardMetrics, getRecentLeads } from '../../services/analytics';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Users, PhoneCall, Calendar, TrendingUp, DollarSign, Clock } from 'lucide-react';
+import { Users, PhoneCall, Calendar, TrendingUp, DollarSign, Activity } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 
 export default function AdminDashboard() {
@@ -14,111 +14,75 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [metricsData, leadsData] = await Promise.all([
-          getDashboardMetrics(),
-          getRecentLeads(5)
-        ]);
+        const [metricsData, leadsData] = await Promise.all([getDashboardMetrics(), getRecentLeads(5)]);
         setMetrics(metricsData);
         setRecentLeads(leadsData);
-      } catch (error) {
-        console.error("Error cargando dashboard:", error);
-      } finally {
-        setLoading(false);
-      }
+      } catch (error) { console.error(error); } 
+      finally { setLoading(false); }
     }
     loadData();
   }, []);
 
-  if (loading) return <div className="text-white">Cargando métricas...</div>;
-  if (!metrics) return <div className="text-red-400">Error al cargar datos.</div>;
-
-  const kpiCards = [
-    { title: "Total Leads", value: metrics.totalLeads, icon: Users, color: "text-blue-400" },
-    { title: "Nuevos (Hoy)", value: metrics.newLeads, icon: Clock, color: "text-green-400" },
-    { title: "Tasa Conversión", value: `${metrics.conversionRate}%`, icon: TrendingUp, color: "text-purple-400" },
-    { title: "Citas Hoy", value: metrics.appointmentsToday, icon: Calendar, color: "text-orange-400" },
-  ];
+  if (loading) return <div className="text-white p-10">Cargando m étricas globales...</div>;
+  if (!metrics) return <div className="text-red-400 p-10">Error al cargar datos.</div>;
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold text-white">Dashboard General</h1>
-        <p className="text-zinc-400">Bienvenido, {user?.full_name || user?.email}</p>
+        <h1 className="text-3xl font-bold text-white">Visión Global</h1>
+        <p className="text-zinc-400">Panel de control general de la organización.</p>
       </div>
 
-      {/* KPI Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {kpiCards.map((kpi) => (
-          <Card key={kpi.title} className="bg-zinc-900 border-zinc-800 text-white">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-zinc-400">{kpi.title}</CardTitle>
-              <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{kpi.value}</div>
-            </CardContent>
-          </Card>
-        ))}
+        <Card className="bg-zinc-900 border-zinc-800 text-white">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-zinc-400">Total Leads (Todos)</CardTitle>
+            <Users className="h-4 w-4 text-blue-400" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{metrics.totalLeads}</div></CardContent>
+        </Card>
+        <Card className="bg-zinc-900 border-zinc-800 text-white">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-zinc-400">Tasa Conversión Global</CardTitle>
+            <TrendingUp className="h-4 w-4 text-purple-400" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{metrics.conversionRate}%</div></CardContent>
+        </Card>
+        <Card className="bg-zinc-900 border-zinc-800 text-white">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-zinc-400">Citas Hoy (Todas)</CardTitle>
+            <Calendar className="h-4 w-4 text-orange-400" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{metrics.appointmentsToday}</div></CardContent>
+        </Card>
+        <Card className="bg-zinc-900 border-zinc-800 text-white">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-zinc-400">Ingresos Estimados</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-400" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">${(metrics.totalSales * 150).toLocaleString()}</div></CardContent>
+        </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        {/* Tabla de Leads Recientes */}
-        <Card className="col-span-4 bg-zinc-900 border-zinc-800 text-white">
-          <CardHeader>
-            <CardTitle>Leads Recientes</CardTitle>
-          </CardHeader>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="bg-zinc-900 border-zinc-800 text-white col-span-2">
+          <CardHeader><CardTitle>Actividad Reciente en la Organización</CardTitle></CardHeader>
           <CardContent>
-            <div className="relative overflow-x-auto">
-              <table className="w-full text-sm text-left text-zinc-400">
-                <thead className="text-xs text-zinc-500 uppercase bg-zinc-950/50">
-                  <tr>
-                    <th className="px-4 py-3">Nombre</th>
-                    <th className="px-4 py-3">Estado</th>
-                    <th className="px-4 py-3">Fecha</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentLeads.map((lead) => (
-                    <tr key={lead.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
-                      <td className="px-4 py-3 font-medium text-white">{lead.full_name}</td>
-                      <td className="px-4 py-3">
-                        <Badge variant="outline" className={`
-                          ${lead.status === 'new' ? 'bg-blue-900/30 text-blue-400 border-blue-800' : ''}
-                          ${lead.status === 'closed' ? 'bg-green-900/30 text-green-400 border-green-800' : ''}
-                          ${!['new','closed'].includes(lead.status) ? 'bg-zinc-800 text-zinc-300' : ''}
-                        `}>
-                          {lead.status}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3">{new Date(lead.created_at).toLocaleDateString()}</td>
-                    </tr>
-                  ))}
-                  {recentLeads.length === 0 && (
-                    <tr><td colSpan={3} className="text-center py-4">Sin leads recientes</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Resumen Rápido */}
-        <Card className="col-span-3 bg-zinc-900 border-zinc-800 text-white">
-          <CardHeader>
-            <CardTitle>Resumen de Actividad</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between items-center p-3 bg-zinc-950/50 rounded-lg">
-              <span className="text-zinc-400">Leads Contactados</span>
-              <span className="font-bold text-white">{metrics.contactedLeads}</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-zinc-950/50 rounded-lg">
-              <span className="text-zinc-400">Próximas Citas</span>
-              <span className="font-bold text-white">{metrics.appointmentsUpcoming}</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-zinc-950/50 rounded-lg">
-              <span className="text-zinc-400">Ventas (Cerrados)</span>
-              <span className="font-bold text-green-400">{metrics.totalSales}</span>
+            <div className="space-y-4">
+              {recentLeads.map((lead) => (
+                <div key={lead.id} className="flex items-center justify-between border-b border-zinc-800 pb-2 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold">{lead.full_name.charAt(0)}</div>
+                    <div>
+                      <p className="font-medium text-white">{lead.full_name}</p>
+                      <p className="text-xs text-zinc-500">{lead.email}</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={`${lead.status === 'new' ? 'border-blue-500 text-blue-400' : 'border-zinc-600 text-zinc-400'}`}>
+                    {lead.status}
+                  </Badge>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

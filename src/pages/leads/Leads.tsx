@@ -96,7 +96,7 @@ function CloseDealModal({ isOpen, onClose, onSave, lead }: any) {
           <div className="flex items-center justify-between p-3 bg-zinc-900 rounded-lg border border-zinc-800">
             <div className="flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-zinc-400" />
-              <Label className="m-0 cursor-pointer">¿Paga a cuotas?</Label>
+              <Label className="m-0 cursor-pointer">Â¿Paga a cuotas?</Label>
             </div>
             <Switch checked={isInstallments} onCheckedChange={setIsInstallments} />
           </div>
@@ -104,7 +104,7 @@ function CloseDealModal({ isOpen, onClose, onSave, lead }: any) {
           {isInstallments && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="grid grid-cols-2 gap-4 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800">
               <div className="space-y-2">
-                <Label>Número de Cuotas</Label>
+                <Label>NÃºmero de Cuotas</Label>
                 <Input type="number" value={installmentCount} onChange={(e) => setInstallmentCount(e.target.value)} className="bg-zinc-900 border-zinc-800 text-white" placeholder="Ej: 3" />
               </div>
               <div className="space-y-2">
@@ -130,12 +130,12 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
     if (!lead.phone) return;
     let cleanPhone = lead.phone.replace(/\D/g, '');
     if (cleanPhone.length === 10 && !cleanPhone.startsWith('57')) cleanPhone = '57' + cleanPhone;
-    const text = `Hola ${lead.full_name}, te contacto respecto a tu interés en Vantage.`;
+    const text = `Hola ${lead.full_name}, te contacto respecto a tu interÃ©s en Vantage.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleDelete = async () => {
-    if (!confirm('¿Eliminar lead?')) return;
+    if (!confirm('Â¿Eliminar lead?')) return;
     await supabase.from('leads').delete().eq('id', lead.id);
     onUpdate();
   };
@@ -210,7 +210,7 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
             {lead.email && <div className="flex items-center gap-2 text-xs text-zinc-400 truncate"><Mail className="w-3 h-3" /> {lead.email}</div>}
             {lead.phone && <div className="flex items-center gap-2 text-xs text-zinc-400"><Phone className="w-3 h-3" /> {lead.phone}</div>}
             
-            {/* Mostrar resumen financiero si está cerrado */}
+            {/* Mostrar resumen financiero si estÃ¡ cerrado */}
             {lead.status === 'closed' && lead.meta && (
               <div className="mt-3 pt-2 border-t border-zinc-800 space-y-1">
                 <div className="flex justify-between text-xs">
@@ -261,8 +261,8 @@ export default function LeadsPage() {
   const [newEmail, setNewEmail] = useState('');
   const [newPhone, setNewPhone] = useState('');
   
-  // Ref para evitar doble suscripción
-  const channelRef = useRef<any>(null);
+  // Ref para evitar doble suscripciÃ³n
+  
 
   const loadLeads = async () => {
     const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
@@ -272,20 +272,14 @@ export default function LeadsPage() {
 
   useEffect(() => {
     loadLeads();
+    const intervalId = setInterval(() => loadLeads(), 5000);
+    return () => clearInterval(intervalId);
     
     // Suscribirse solo si no existe un canal activo
-    if (!channelRef.current) {
-      channelRef.current = supabase.channel('public:leads')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => loadLeads())
-        .subscribe();
+    
     }
 
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
+    return () => {};
   }, []);
 
   const handleCreateLead = async (e: React.FormEvent) => {
@@ -327,14 +321,14 @@ export default function LeadsPage() {
               <form onSubmit={handleCreateLead} className="space-y-4 mt-2">
                 <div className="space-y-2">
                   <Label>Nombre Completo *</Label>
-                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan Pérez" className="bg-zinc-900 border-zinc-800 text-white" />
+                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan PÃ©rez" className="bg-zinc-900 border-zinc-800 text-white" />
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
                   <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="juan@ejemplo.com" className="bg-zinc-900 border-zinc-800 text-white" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Teléfono</Label>
+                  <Label>TelÃ©fono</Label>
                   <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+57 300 123 4567" className="bg-zinc-900 border-zinc-800 text-white" />
                 </div>
                 <DialogFooter className="pt-4">

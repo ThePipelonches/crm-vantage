@@ -62,12 +62,12 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
     if (!lead.phone) return;
     let cleanPhone = lead.phone.replace(/\D/g, '');
     if (cleanPhone.length === 10 && !cleanPhone.startsWith('57')) cleanPhone = '57' + cleanPhone;
-    const text = `Hola ${lead.full_name}, te contacto respecto a tu interés en Vantage.`;
+    const text = `Hola ${lead.full_name}, te contacto respecto a tu interÃ©s en Vantage.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleDelete = async () => {
-    if (!confirm('¿Eliminar lead?')) return;
+    if (!confirm('Â¿Eliminar lead?')) return;
     await supabase.from('leads').delete().eq('id', lead.id);
     onUpdate();
   };
@@ -81,7 +81,7 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
     <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="mb-3 relative group">
       {isUrgent && (
         <div className="absolute -top-2 -right-2 z-20 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg animate-pulse border-2 border-black">
-          <AlertCircle className="w-3 h-3 inline mr-1" /> ¡LLAMAR YA!
+          <AlertCircle className="w-3 h-3 inline mr-1" /> Â¡LLAMAR YA!
         </div>
       )}
       <Card className={`bg-zinc-900 border-zinc-800 transition-all ${isUrgent ? 'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'hover:border-zinc-600'}`}>
@@ -146,6 +146,7 @@ export default function LeadsPage() {
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPhone, setNewPhone] = useState('');
+  const channelRef = useState<any>(null);
 
   const loadLeads = async () => {
     const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
@@ -155,10 +156,18 @@ export default function LeadsPage() {
 
   useEffect(() => {
     loadLeads();
-    const channel = supabase.channel('public:leads')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => loadLeads())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    if (!channelRef[0]) {
+      const channel = supabase.channel('public:leads')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => loadLeads())
+        .subscribe();
+      channelRef[1](channel);
+    }
+    return () => {
+      if (channelRef[0]) {
+        supabase.removeChannel(channelRef[0]);
+        channelRef[1](null);
+      }
+    };
   }, []);
 
   const handleCreateLead = async (e: React.FormEvent) => {

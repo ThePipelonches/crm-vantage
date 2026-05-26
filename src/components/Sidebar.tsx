@@ -20,7 +20,7 @@ export function Sidebar() {
   if (!user) return null;
 
   const isAdmin = user.role === 'admin';
-  const isSetter = user.role === 'setter';
+  const isSetter = user.role === 'admin';
   const isCloser = user.role === 'closer';
   const isPsychologist = user.role === 'psychologist';
 

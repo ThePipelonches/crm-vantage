@@ -41,8 +41,15 @@ export default function PatientsPage() {
 
     if (user?.role === 'admin') {
       const { data: uData, error: uErr } = await supabase.auth.admin.listUsers();
-      if (!uErr && uData) {
-        const psychs = uData.users.filter(u => u.role === 'psychologist' || u.user_metadata?.role === 'psychologist');
+      if (!uErr && uData?.users) {
+        // Filtrado manual con verificación de tipos
+        const psychs = uData.users.filter((u: any) => 
+          (u.role === 'psychologist' || u.user_metadata?.role === 'psychologist') && u.email
+        ).map((u: any) => ({
+          id: u.id,
+          email: u.email,
+          raw_user_meta_data: u.user_metadata || {}
+        }));
         setPsychologists(psychs);
       }
     }
@@ -81,7 +88,7 @@ export default function PatientsPage() {
         </div>
         <div>
           <h1 className="text-3xl font-bold text-white">Pacientes Nuevos</h1>
-          <p className="text-zinc-400">Gestiona la asignación de psicólogos.</p>
+          <p className="text-zinc-400">Gestiona la asignaciÃ³n de psicÃ³logos.</p>
         </div>
       </div>
 
@@ -111,7 +118,7 @@ export default function PatientsPage() {
 
                 {user?.role === 'admin' && patient.status === 'pending_assignment' && (
                   <div className="space-y-2 pt-2 border-t border-zinc-800">
-                    <label className="text-xs text-zinc-400">Asignar Psicólogo:</label>
+                    <label className="text-xs text-zinc-400">Asignar PsicÃ³logo:</label>
                     <Select value={assigningPatientId === patient.id ? selectedPsychologist : ''} onValueChange={(val) => { setSelectedPsychologist(val); setAssigningPatientId(patient.id); }}>
                       <SelectTrigger className="bg-zinc-950 border-zinc-800 text-white h-9">
                         <SelectValue placeholder="Seleccionar..." />

@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { 
   UserPlus, Clock, CheckCircle, Stethoscope, AlertCircle, 
-  Search, Filter, Calendar 
+  Search, Filter, Calendar, DollarSign, Users
 } from 'lucide-react';
 import {
   Select,
@@ -31,7 +31,6 @@ interface Patient {
   phone?: string;
   status: 'pending_assignment' | 'active' | 'completed';
   psychologist_id?: string;
-  psychologist_name?: string;
   sale_total?: number;
   cash_collected?: number;
   installments_count?: number;
@@ -52,65 +51,68 @@ export default function PatientsPage() {
   const [psychologists, setPsychologists] = useState<Psychologist[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Estado para el modal de asignación
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [selectedPsychId, setSelectedPsychId] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
+    console.log("🔄 Cargando pacientes para rol:", user?.role);
     
-    // 1. Cargar Pacientes
-    let query = supabase.from('patients').select('*').order('created_at', { ascending: false });
-    
-    // Si es psicólogo, solo ve SUS pacientes asignados
-    if (user?.role === 'psychologist') {
-      query = query.eq('psychologist_id', user.id);
-    }
-    
-    const { data: pData, error: pErr } = await query;
-    if (pErr) console.error("Error loading patients:", pErr);
-    else if (pData) {
-      // Enriquecer datos con nombres de psicólogos si es necesario (opcional, si tienes tabla profiles)
-      // Por ahora usamos los datos crudos
-      setPatients(pData);
-    }
-
-    // 2. Cargar Psicólogos (Solo Admin necesita la lista completa para asignar)
-    if (user?.role === 'admin') {
-      // Intentamos obtener usuarios con rol psychologist
-      // Nota: Esto depende de cómo tengas los roles. Asumimos que hay una forma de filtrar o identificar psicólogos.
-      // Opción A: Si tienes tabla 'profiles' con rol
-      const { data: profiles, error: profErr } = await supabase
-        .from('profiles') // Asegúrate de tener esta tabla o ajustar a tu esquema de roles
-        .select('id, full_name, email')
-        .eq('role', 'psychologist');
+    try {
+      // 1. Cargar Pacientes
+      let query = supabase.from('patients').select('*').order('created_at', { ascending: false });
       
-      if (!profErr && profiles) {
-        setPsychologists(profiles);
-      } else {
-        // Opción B: Fallback si no hay tabla profiles, listar todos y filtrar manualmente (menos seguro pero funcional para dev)
-        // O simplemente dejar vacío si no hay manera segura sin RLS complejo
-        console.log("No se pudieron cargar psicólogos desde profiles, verificando auth...");
+      if (user?.role === 'psychologist') {
+        query = query.eq('psychologist_id', user.id);
       }
+      
+      const { data: pData, error: pErr } = await query;
+      
+      if (pErr) {
+        console.error("❌ Error cargando pacientes:", pErr);
+        alert("Error cargando pacientes: " + pErr.message);
+      } else {
+        console.log("✅ Pacientes cargados:", pData?.length);
+        setPatients(pData || []);
+      }
+
+      // 2. Cargar Psicólogos (Solo Admin)
+      if (user?.role === 'admin') {
+        const { data: profiles, error: profErr } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .eq('role', 'psychologist');
+        
+        if (!profErr && profiles) {
+          setPsychologists(profiles);
+          console.log("✅ Psicólogos cargados:", profiles.length);
+        } else {
+          console.warn("⚠️ No se pudieron cargar psicólogos desde profiles:", profErr);
+          // Fallback: intentar leer de auth si falla profiles (requiere permisos extra)
+        }
+      }
+    } catch (err: any) {
+      console.error("Error general:", err);
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   useEffect(() => {
     fetchData();
-    // Polling cada 5 segundos para ver nuevos pacientes
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [user?.role]);
 
   const handleAssignPsychologist = async () => {
-    if (!selectedPatientId || !selectedPsychId) return;
+    if (!selectedPatientId || !selectedPsychId) {
+      alert("Selecciona un psicólogo");
+      return;
+    }
     setIsAssigning(true);
 
     try {
-      // 1. Actualizar paciente
       const { error: updateErr } = await supabase
         .from('patients')
         .update({ 
@@ -121,12 +123,7 @@ export default function PatientsPage() {
 
       if (updateErr) throw updateErr;
 
-      // 2. (Opcional) Aquí podrías crear una notificación en una tabla 'notifications'
-      // await supabase.from('notifications').insert({ ... })
-
-      alert('✅ Paciente asignado correctamente. El psicólogo puede verlo ahora en su panel.');
-      
-      // Reset y recarga
+      alert('✅ Paciente asignado correctamente.');
       setSelectedPatientId(null);
       setSelectedPsychId('');
       fetchData();
@@ -139,7 +136,7 @@ export default function PatientsPage() {
 
   const openAssignModal = (patientId: string) => {
     setSelectedPatientId(patientId);
-    setSelectedPsychId(''); // Reset selection
+    setSelectedPsychId('');
   };
 
   return (
@@ -181,6 +178,11 @@ export default function PatientsPage() {
           <UserPlus className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-zinc-300">No hay pacientes</h3>
           <p className="text-zinc-500">Los pacientes aparecerán aquí cuando un lead sea cerrado exitosamente.</p>
+          {user?.role === 'admin' && (
+            <Button variant="link" onClick={fetchData} className="mt-4 text-blue-400">
+              Recargar datos
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -204,7 +206,7 @@ export default function PatientsPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Info de Venta (Resumen) */}
+                {/* Info de Venta */}
                 <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-800 text-xs space-y-1">
                   <div className="flex justify-between text-zinc-400">
                     <span>Valor Plan:</span>
@@ -222,7 +224,6 @@ export default function PatientsPage() {
                   )}
                 </div>
 
-                {/* Notas del Lead */}
                 {patient.notes && (
                   <div className="text-xs text-zinc-500 italic line-clamp-2">
                     "{patient.notes}"
@@ -243,7 +244,6 @@ export default function PatientsPage() {
                   </div>
                 )}
 
-                {/* Estado para Psicólogo o Admin (ya asignado) */}
                 {patient.status === 'active' && (
                   <div className="pt-2 flex items-center gap-2 text-sm text-green-400 bg-green-900/10 p-2 rounded border border-green-900/30">
                     <Stethoscope className="w-4 h-4" />
@@ -273,7 +273,7 @@ export default function PatientsPage() {
           
           <div className="py-4 space-y-4">
             <p className="text-sm text-zinc-400">
-              Selecciona un psicólogo para atender a este paciente. Recibirá una notificación en su panel.
+              Selecciona un psicólogo para atender a este paciente.
             </p>
             
             <div className="space-y-2">

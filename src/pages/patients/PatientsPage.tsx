@@ -57,13 +57,13 @@ export default function PatientsPage() {
 
     const fetchData = async () => {
     setLoading(true);
-    console.log("🔄 Cargando pacientes para rol:", user?.role);
+    console.log("ðŸ”„ Cargando pacientes para rol:", user?.role);
     
     try {
       // 1. Construir query base
       let query = supabase.from('patients').select('*').order('created_at', { ascending: false });
       
-      // 2. Aplicar filtro si es psicólogo (solo ve los suyos)
+      // 2. Aplicar filtro si es Psicólogo (solo ve los suyos)
       if (user?.role === 'psychologist') {
         query = query.eq('psychologist_id', user.id);
       }
@@ -72,11 +72,11 @@ export default function PatientsPage() {
       const { data: pData, error: pErr } = await query;
       
       if (pErr) {
-        console.error("❌ ERROR RLS/DB:", pErr);
-        console.log("🔍 Detalles del error:", JSON.stringify(pErr));
+        console.error("âŒ ERROR RLS/DB:", pErr);
+        console.log("ðŸ” Detalles del error:", JSON.stringify(pErr));
         setPatients([]);
       } else {
-        console.log("✅ Pacientes cargados:", pData?.length);
+        console.log("âœ… Pacientes cargados:", pData?.length);
         setPatients(pData || []);
       }
 
@@ -89,9 +89,9 @@ export default function PatientsPage() {
         
         if (!profErr && profiles) {
           setPsychologists(profiles);
-          console.log("✅ Psicólogos cargados:", profiles.length);
+          console.log("âœ… Psicólogos cargados:", profiles.length);
         } else {
-          console.warn("⚠️ No se pudieron cargar psicólogos:", profErr);
+          console.warn("âš ï¸ No se pudieron cargar Psicólogos:", profErr);
           setPsychologists([]);
         }
       }
@@ -103,14 +103,12 @@ export default function PatientsPage() {
   };
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
+    fetchData();return () => {};
   }, [user?.role]);
 
   const handleAssignPsychologist = async () => {
     if (!selectedPatientId || !selectedPsychId) {
-      alert("Selecciona un psicÃƒÆ’Ã‚Â³logo");
+      alert("Selecciona un psicÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³logo");
       return;
     }
     setIsAssigning(true);
@@ -126,12 +124,12 @@ export default function PatientsPage() {
 
       if (updateErr) throw updateErr;
 
-      alert('ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Paciente asignado correctamente.');
+      alert('ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Paciente asignado correctamente.');
       setSelectedPatientId(null);
       setSelectedPsychId('');
       fetchData();
     } catch (err: any) {
-      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Error al asignar: ' + err.message);
+      alert('ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Error al asignar: ' + err.message);
     } finally {
       setIsAssigning(false);
     }
@@ -149,12 +147,12 @@ export default function PatientsPage() {
         <div>
           <h1 className="text-3xl font-bold text-white flex items-center gap-3">
             <UserPlus className="w-8 h-8 text-blue-500" />
-            GestiÃƒÆ’Ã‚Â³n de Pacientes
+            GestiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de Pacientes
           </h1>
           <p className="text-zinc-400 mt-2">
             {user?.role === 'admin' 
-              ? "Asigna psicÃƒÆ’Ã‚Â³logos a los nuevos pacientes provenientes de ventas." 
-              : "Lista de tus pacientes asignados para seguimiento clÃƒÆ’Ã‚Â­nico."}
+              ? "Asigna psicÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³logos a los nuevos pacientes provenientes de ventas." 
+              : "Lista de tus pacientes asignados para seguimiento clÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­nico."}
           </p>
         </div>
         
@@ -180,7 +178,7 @@ export default function PatientsPage() {
         <div className="text-center py-20 bg-zinc-900/50 rounded-xl border border-dashed border-zinc-800">
           <UserPlus className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-zinc-300">No hay pacientes</h3>
-          <p className="text-zinc-500">Los pacientes aparecerÃƒÆ’Ã‚Â¡n aquÃƒÆ’Ã‚Â­ cuando un lead sea cerrado exitosamente.</p>
+          <p className="text-zinc-500">Los pacientes aparecerÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡n aquÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­ cuando un lead sea cerrado exitosamente.</p>
           {user?.role === 'admin' && (
             <Button variant="link" onClick={fetchData} className="mt-4 text-blue-400">
               Recargar datos
@@ -242,7 +240,7 @@ export default function PatientsPage() {
                       size="sm"
                     >
                       <Stethoscope className="w-4 h-4 mr-2" />
-                      Asignar PsicÃƒÆ’Ã‚Â³logo
+                      Asignar PsicÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³logo
                     </Button>
                   </div>
                 )}
@@ -250,7 +248,7 @@ export default function PatientsPage() {
                 {patient.status === 'active' && (
                   <div className="pt-2 flex items-center gap-2 text-sm text-green-400 bg-green-900/10 p-2 rounded border border-green-900/30">
                     <Stethoscope className="w-4 h-4" />
-                    <span>PsicÃƒÆ’Ã‚Â³logo Asignado</span>
+                    <span>PsicÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³logo Asignado</span>
                   </div>
                 )}
                 
@@ -264,26 +262,26 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* Modal de AsignaciÃƒÆ’Ã‚Â³n */}
+      {/* Modal de AsignaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n */}
       <Dialog open={!!selectedPatientId} onOpenChange={(open) => !open && setSelectedPatientId(null)}>
         <DialogContent className="bg-zinc-900 border-zinc-800 text-white sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-blue-500" />
-              Asignar PsicÃƒÆ’Ã‚Â³logo
+              Asignar PsicÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³logo
             </DialogTitle>
           </DialogHeader>
           
           <div className="py-4 space-y-4">
             <p className="text-sm text-zinc-400">
-              Selecciona un psicÃƒÆ’Ã‚Â³logo para atender a este paciente.
+              Selecciona un psicÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³logo para atender a este paciente.
             </p>
             
             <div className="space-y-2">
               <Label htmlFor="psych-select">Profesional</Label>
               <Select value={selectedPsychId} onValueChange={setSelectedPsychId}>
                 <SelectTrigger id="psych-select" className="bg-zinc-950 border-zinc-800 text-white">
-                  <SelectValue placeholder="Seleccionar psicÃƒÆ’Ã‚Â³logo..." />
+                  <SelectValue placeholder="Seleccionar psicÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³logo..." />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
                   {psychologists.length > 0 ? (
@@ -293,7 +291,7 @@ export default function PatientsPage() {
                       </SelectItem>
                     ))
                   ) : (
-                    <div className="p-2 text-xs text-zinc-500">No hay psicÃƒÆ’Ã‚Â³logos registrados</div>
+                    <div className="p-2 text-xs text-zinc-500">No hay psicÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³logos registrados</div>
                   )}
                 </SelectContent>
               </Select>
@@ -309,7 +307,7 @@ export default function PatientsPage() {
               disabled={!selectedPsychId || isAssigning}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {isAssigning ? 'Asignando...' : 'Confirmar AsignaciÃƒÆ’Ã‚Â³n'}
+              {isAssigning ? 'Asignando...' : 'Confirmar AsignaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n'}
             </Button>
           </DialogFooter>
         </DialogContent>

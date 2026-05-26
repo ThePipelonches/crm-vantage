@@ -26,14 +26,12 @@ interface Lead {
   email: string;
   phone: string;
   status: string;
+  notes?: string;
+  created_at: string;
   sale_total?: number;
   cash_collected?: number;
   installments_count?: number;
   installment_value?: number;
-  sale_total?: number;
-  cash_collected?: number;
-  is_converted?: boolean;
-  created_at: string;
 }
 
 function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
@@ -47,19 +45,19 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
     if (!lead.phone) return;
     let cleanPhone = lead.phone.replace(/\D/g, '');
     if (cleanPhone.length === 10 && !cleanPhone.startsWith('57')) cleanPhone = '57' + cleanPhone;
-    const text = `Hola ${lead.full_name}, te contacto respecto a tu interÃ©s en Vantage.`;
+    const text = `Hola ${lead.full_name}, te contacto respecto a tu interÃƒÂ©s en Vantage.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleDelete = async () => {
-    if (!confirm('Â¿Eliminar lead?')) return;
+    if (!confirm('Ã‚Â¿Eliminar lead?')) return;
     await supabase.from('leads').delete().eq('id', lead.id);
     onUpdate();
   };
 
   const handleStatusChange = async (newStatus: string) => {
     if (newStatus === 'closed' && !lead.is_converted) {
-      // Si mueve a cerrados y no estÃ¡ convertido, abrir modal de venta
+      // Si mueve a cerrados y no estÃƒÂ¡ convertido, abrir modal de venta
       setIsSaleModalOpen(true);
       // Pre-llenar valores si ya existen
       if (lead.sale_total) setSaleTotal(lead.sale_total.toString());
@@ -95,7 +93,7 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
       return;
     }
 
-    // 2. Crear registro en tabla patients para notificaciÃ³n y asignaciÃ³n
+    // 2. Crear registro en tabla patients para notificaciÃƒÂ³n y asignaciÃƒÂ³n
     await supabase.from('patients').insert({
       lead_id: lead.id,
       full_name: lead.full_name,
@@ -107,10 +105,10 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
 
     setIsSaleModalOpen(false);
     onUpdate();
-    alert('Â¡Venta guardada! El paciente ha sido enviado a la bandeja de "Pacientes" para asignaciÃ³n.');
+    alert('Ã‚Â¡Venta guardada! El paciente ha sido enviado a la bandeja de "Pacientes" para asignaciÃƒÂ³n.');
   };
 
-  // Si estÃ¡ convertido, no mostramos tarjeta en el pipeline (se va a pacientes)
+  // Si estÃƒÂ¡ convertido, no mostramos tarjeta en el pipeline (se va a pacientes)
   if (lead.is_converted) return null;
 
   return (
@@ -171,7 +169,7 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
           </DialogHeader>
           <form onSubmit={handleSaveSale} className="space-y-4 mt-2">
             <div className="p-3 bg-green-900/20 border border-green-800 rounded-md text-xs text-green-300">
-              Al guardar, este lead desaparecerÃ¡ del pipeline y se crearÃ¡ un perfil de paciente para asignar psicÃ³logo.
+              Al guardar, este lead desaparecerÃƒÂ¡ del pipeline y se crearÃƒÂ¡ un perfil de paciente para asignar psicÃƒÂ³logo.
             </div>
             <div className="space-y-2">
               <Label>Valor Total del Plan ($)</Label>
@@ -183,7 +181,7 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>NÂ° Cuotas</Label>
+                <Label>NÃ‚Â° Cuotas</Label>
                 <Input type="number" value={installmentsCount} onChange={(e) => setInstallmentsCount(e.target.value)} placeholder="Ej: 4" className="bg-zinc-900 border-zinc-800 text-white" />
               </div>
               <div className="space-y-2">
@@ -208,7 +206,7 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
 
   const loadLeads = async () => {
-    // Solo cargamos leads que NO han sido convertidos aÃºn
+    // Solo cargamos leads que NO han sido convertidos aÃƒÂºn
     const { data, error } = await supabase.from('leads')
       .select('*')
       .eq('is_converted', false) 

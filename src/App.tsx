@@ -5,7 +5,7 @@ import { AppLayout } from './layouts/AppLayout';
 
 // Admin & General
 import Dashboard from './pages/admin/Dashboard';
-import LeadsPage from './pages/setter/Leads'; // Asegúrate que esta ruta exista o ajústala si moviste el archivo
+import LeadsPage from './pages/setter/Leads';
 
 // Commercial
 import CommercialDashboard from './pages/commercial/Dashboard';
@@ -39,72 +39,19 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
-      <Route path="/" element={user ? <AppLayout /> : <Navigate to="/login" replace />}>
+      <Route path="/" element={user ? <AppLayout /> : <Navigate to="/" replace />}>
         <Route index element={<Dashboard />} />
         
-        {/* Leads - Accesible para Admin y Closer (ya no Setter) */}
-        <Route 
-          path="leads" 
-          element={
-            <RoleProtectedRoute allowedRoles={['admin', 'closer']}>
-              <LeadsPage />
-            </RoleProtectedRoute>
-          } 
-        />
+        <Route path="leads" element={<LeadsPage />} />
         
-        {/* Commercial Routes */}
-        <Route 
-          path="commercial" 
-          element={
-            <RoleProtectedRoute allowedRoles={['admin', 'closer']}>
-              <CommercialDashboard />
-            </RoleProtectedRoute>
-          } 
-        />
-        <Route 
-          path="appointments" 
-          element={
-            <RoleProtectedRoute allowedRoles={['admin', 'closer']}>
-              <CommercialAppointments />
-            </RoleProtectedRoute>
-          } 
-        />
+        <Route path="commercial" element={<CommercialDashboard />} />
+        <Route path="appointments" element={<CommercialAppointments />} />
         
-        {/* Psychologist Routes */}
-        <Route 
-          path="clinical" 
-          element={
-            <RoleProtectedRoute allowedRoles={['admin', 'psychologist']}>
-              <ClinicalDashboard />
-            </RoleProtectedRoute>
-          } 
-        />
-        <Route 
-          path="clients" 
-          element={
-            <RoleProtectedRoute allowedRoles={['admin', 'psychologist']}>
-              <ClientsPage />
-            </RoleProtectedRoute>
-          } 
-        />
-        <Route 
-          path="clinical-appointments" 
-          element={
-            <RoleProtectedRoute allowedRoles={['admin', 'psychologist']}>
-              <ClinicalAppointments />
-            </RoleProtectedRoute>
-          } 
-        />
+        <Route path="clinical" element={<ClinicalDashboard />} />
+        <Route path="clients" element={<ClientsPage />} />
+        <Route path="clinical-appointments" element={<ClinicalAppointments />} />
         
-        {/* Admin Only */}
-        <Route 
-          path="admin-panel" 
-          element={
-            <RoleProtectedRoute allowedRoles={['admin']}>
-              <Dashboard />
-            </RoleProtectedRoute>
-          } 
-        />
+        <Route path="admin-panel" element={<Dashboard />} />
       </Route>
       <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
     </Routes>

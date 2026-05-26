@@ -52,12 +52,12 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
     if (!lead.phone) return;
     let cleanPhone = lead.phone.replace(/\D/g, '');
     if (cleanPhone.length === 10 && !cleanPhone.startsWith('57')) cleanPhone = '57' + cleanPhone;
-    const text = `Hola ${lead.full_name}, te contacto respecto a tu interÃƒÂ©s en Vantage.`;
+    const text = `Hola ${lead.full_name}, te contacto respecto a tu interÃƒÆ’Ã‚Â©s en Vantage.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleDelete = async () => {
-    if (!confirm('Ã‚Â¿Eliminar lead?')) return;
+    if (!confirm('Ãƒâ€šÃ‚Â¿Eliminar lead?')) return;
     await supabase.from('leads').delete().eq('id', lead.id);
     onUpdate();
   };
@@ -71,7 +71,7 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
     <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="mb-3 relative group">
       {isUrgent && (
         <div className="absolute -top-2 -right-2 z-20 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg animate-pulse border-2 border-black">
-          <AlertCircle className="w-3 h-3 inline mr-1" /> Ã‚Â¡LLAMAR YA!
+          <AlertCircle className="w-3 h-3 inline mr-1" /> Ãƒâ€šÃ‚Â¡LLAMAR YA!
         </div>
       )}
       <Card className={`bg-zinc-900 border-zinc-800 transition-all ${isUrgent ? 'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'hover:border-zinc-600'}`}>
@@ -149,7 +149,7 @@ export default function LeadsPage() {
     }
   };
 
-  // SOLUCIÃƒâ€œN DEFINITIVA: Polling cada 5 segundos en lugar de WebSockets
+  // SOLUCIÃƒÆ’Ã¢â‚¬Å“N DEFINITIVA: Polling cada 5 segundos en lugar de WebSockets
   useEffect(() => {
     loadLeads(); // Carga inicial
     
@@ -204,14 +204,14 @@ export default function LeadsPage() {
               <form onSubmit={handleCreateLead} className="space-y-4 mt-2">
                 <div className="space-y-2">
                   <Label>Nombre Completo *</Label>
-                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan PÃƒÂ©rez" className="bg-zinc-900 border-zinc-800 text-white" />
+                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ej: Juan PÃƒÆ’Ã‚Â©rez" className="bg-zinc-900 border-zinc-800 text-white" />
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
                   <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="juan@ejemplo.com" className="bg-zinc-900 border-zinc-800 text-white" />
                 </div>
                 <div className="space-y-2">
-                  <Label>TelÃƒÂ©fono</Label>
+                  <Label>TelÃƒÆ’Ã‚Â©fono</Label>
                   <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+57 300 123 4567" className="bg-zinc-900 border-zinc-800 text-white" />
                 </div>
                 <DialogFooter className="pt-4">

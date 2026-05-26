@@ -1,11 +1,11 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+﻿import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import LoginPage from './pages/LoginPage';
 import { AppLayout } from './layouts/AppLayout';
 
 // Admin & General
 import Dashboard from './pages/admin/Dashboard';
-import LeadsPage from './pages/admin/Leads'; // Asegúrate que esta ruta exista o cámbiala a la correcta
+import LeadsPage from './pages/setter/Leads'; // Asegúrate que esta ruta exista o ajústala si moviste el archivo
 
 // Commercial
 import CommercialDashboard from './pages/commercial/Dashboard';
@@ -34,32 +34,78 @@ function RoleProtectedRoute({ children, allowedRoles }: { children: JSX.Element,
 
 function AppRoutes() {
   const { user, loading } = useAuth();
-
   if (loading) return <LoadingScreen />;
 
   return (
     <Routes>
       <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
-
       <Route path="/" element={user ? <AppLayout /> : <Navigate to="/login" replace />}>
         <Route index element={<Dashboard />} />
         
-        <!-- Ruta de Leads ahora accesible para Admin y Closer -->
-        <Route path="leads" element={<LeadsPage />} />
+        {/* Leads - Accesible para Admin y Closer (ya no Setter) */}
+        <Route 
+          path="leads" 
+          element={
+            <RoleProtectedRoute allowedRoles={['admin', 'closer']}>
+              <LeadsPage />
+            </RoleProtectedRoute>
+          } 
+        />
         
-        <!-- Rutas Comerciales -->
-        <Route path="commercial" element={<CommercialDashboard />} />
-        <Route path="appointments" element={<CommercialAppointments />} />
+        {/* Commercial Routes */}
+        <Route 
+          path="commercial" 
+          element={
+            <RoleProtectedRoute allowedRoles={['admin', 'closer']}>
+              <CommercialDashboard />
+            </RoleProtectedRoute>
+          } 
+        />
+        <Route 
+          path="appointments" 
+          element={
+            <RoleProtectedRoute allowedRoles={['admin', 'closer']}>
+              <CommercialAppointments />
+            </RoleProtectedRoute>
+          } 
+        />
         
-        <!-- Rutas Clínicas -->
-        <Route path="clinical" element={<ClinicalDashboard />} />
-        <Route path="clients" element={<ClientsPage />} />
-        <Route path="clinical-appointments" element={<ClinicalAppointments />} />
+        {/* Psychologist Routes */}
+        <Route 
+          path="clinical" 
+          element={
+            <RoleProtectedRoute allowedRoles={['admin', 'psychologist']}>
+              <ClinicalDashboard />
+            </RoleProtectedRoute>
+          } 
+        />
+        <Route 
+          path="clients" 
+          element={
+            <RoleProtectedRoute allowedRoles={['admin', 'psychologist']}>
+              <ClientsPage />
+            </RoleProtectedRoute>
+          } 
+        />
+        <Route 
+          path="clinical-appointments" 
+          element={
+            <RoleProtectedRoute allowedRoles={['admin', 'psychologist']}>
+              <ClinicalAppointments />
+            </RoleProtectedRoute>
+          } 
+        />
         
-        <!-- Admin Only -->
-        <Route path="admin-panel" element={<Dashboard />} />
+        {/* Admin Only */}
+        <Route 
+          path="admin-panel" 
+          element={
+            <RoleProtectedRoute allowedRoles={['admin']}>
+              <Dashboard />
+            </RoleProtectedRoute>
+          } 
+        />
       </Route>
-
       <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
     </Routes>
   );

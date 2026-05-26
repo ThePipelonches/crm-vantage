@@ -1,77 +1,49 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './hooks/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import RoleProtectedRoute from './components/RoleProtectedRoute';
+import { AuthProvider } from './hooks/useAuth'; // Ajustado a tu hook real
+import { ProtectedRoute } from './components/ProtectedRoute'; 
+import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 import LoginPage from './pages/auth/LoginPage';
+import AppLayout from './layouts/AppLayout';
+
+// Páginas Reales confirmadas
 import Dashboard from './pages/admin/Dashboard';
 import LeadsPage from './pages/leads/Leads';
-import PatientsPage from './pages/patients/PatientsPage';
+import PatientsPage from './pages/patients/PatientsPage'; // Unificada
 import CommercialDashboard from './pages/commercial/Dashboard';
-import PsychologistDashboard from './pages/psychologist/Dashboard';
 import ClinicalDashboard from './pages/clinical/Dashboard';
-import AppLayout from './layouts/AppLayout';
+import PsychologistDashboard from './pages/psychologist/Dashboard';
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
+    <AuthProvider>
+      <BrowserRouter>
         <Routes>
-          {/* Public Routes */}
           <Route path="/login" element={<LoginPage />} />
-
-          {/* Protected Routes with Layout */}
+          
           <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+            <Route index element={<Dashboard />} />
             
-            {/* Default Redirect */}
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            {/* Admin & Closer */}
+            <Route path="leads" element={<RoleProtectedRoute allowedRoles={['admin', 'closer']}><LeadsPage /></RoleProtectedRoute>} />
             
-            {/* Admin Routes */}
-            <Route path="dashboard" element={
-              <RoleProtectedRoute allowedRoles={['admin']}>
-                <Dashboard />
-              </RoleProtectedRoute>
-            } />
+            {/* Admin & Psychologist & Closer (Unificado en Patients) */}
+            <Route path="patients" element={<RoleProtectedRoute allowedRoles={['admin', 'psychologist', 'closer']}><PatientsPage /></RoleProtectedRoute>} />
             
-            <Route path="leads" element={
-              <RoleProtectedRoute allowedRoles={['admin', 'closer']}>
-                <LeadsPage />
-              </RoleProtectedRoute>
-            } />
-
-            <Route path="patients" element={
-              <RoleProtectedRoute allowedRoles={['admin', 'psychologist']}>
-                <PatientsPage />
-              </RoleProtectedRoute>
-            } />
-
-            {/* Commercial Routes */}
-            <Route path="commercial" element={
-              <RoleProtectedRoute allowedRoles={['admin', 'closer']}>
-                <CommercialDashboard />
-              </RoleProtectedRoute>
-            } />
-
-            {/* Psychologist/Clinical Routes */}
-            <Route path="clinical" element={
-              <RoleProtectedRoute allowedRoles={['admin', 'psychologist']}>
-                <ClinicalDashboard />
-              </RoleProtectedRoute>
-            } />
+            {/* Commercial */}
+            <Route path="commercial" element={<RoleProtectedRoute allowedRoles={['admin', 'closer']}><CommercialDashboard /></RoleProtectedRoute>} />
             
-            <Route path="psychologist" element={
-              <RoleProtectedRoute allowedRoles={['admin', 'psychologist']}>
-                <PsychologistDashboard />
-              </RoleProtectedRoute>
-            } />
-
-            {/* Catch All */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* Clinical / Psychologist */}
+            <Route path="clinical" element={<RoleProtectedRoute allowedRoles={['admin', 'psychologist']}><ClinicalDashboard /></RoleProtectedRoute>} />
+            <Route path="psychologist" element={<RoleProtectedRoute allowedRoles={['admin', 'psychologist']}><PsychologistDashboard /></RoleProtectedRoute>} />
             
+            {/* Admin Only */}
+            <Route path="admin-panel" element={<RoleProtectedRoute allowedRoles={['admin']}><Dashboard /></RoleProtectedRoute>} />
           </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

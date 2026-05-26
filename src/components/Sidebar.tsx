@@ -2,16 +2,15 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { 
   LayoutDashboard, Users, Calendar, Briefcase, 
-  Stethoscope, LogOut, Menu, X, ChevronLeft, ChevronRight
+  Stethoscope, LogOut, Menu, X 
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from './ui/button';
 
 export function Sidebar() {
-  const { user, signOut } = useAuth(); // Asumiendo signOut, si es logout avisa
+  const { user, signOut } = useAuth(); // Asegúrate que tu hook exporte signOut
   const location = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true); // Abierto por defecto en desktop
 
   const role = user?.role;
 
@@ -26,70 +25,81 @@ export function Sidebar() {
     { path: '/admin-panel', label: 'Administración', icon: LayoutDashboard, roles: ['admin'] },
   ];
 
-  const filteredItems = menuItems.filter(item => item.roles.includes(role || ''));
+  const filteredItems = menuItems.filter(item => 
+    item.roles.includes(role || '')
+  );
 
   return (
     <>
-      {/* Mobile Toggle */}
+      {/* Botón Móvil (Siempre visible en móvil) */}
       <div className="lg:hidden fixed top-4 left-4 z-50">
-        <Button variant="outline" size="icon" onClick={() => setIsMobileOpen(!isMobileOpen)} className="bg-zinc-900 border-zinc-800 text-white">
-          {isMobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        <Button variant="outline" size="icon" onClick={() => setIsOpen(!isOpen)} className="bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800">
+          {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </Button>
       </div>
 
       {/* Sidebar Container */}
-      <div className={`fixed inset-y-0 left-0 z-40 bg-black border-r border-zinc-800 transition-all duration-300 ease-in-out flex flex-col ${isCollapsed ? 'w-20' : 'w-64'} ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-        
-        {/* Header con Toggle Collapsible (Solo Desktop) */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-zinc-800">
-          {!isCollapsed && <h1 className="text-lg font-bold text-white whitespace-nowrap overflow-hidden">CRM Vantage</h1>}
-          <button onClick={() => setIsCollapsed(!isCollapsed)} className="hidden lg:flex text-zinc-400 hover:text-white mx-auto">
-            {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-          </button>
-          {isCollapsed && <div className="mx-auto"><Menu size={20} className="text-white"/></div>}
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-          {filteredItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setIsMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors group relative ${
-                  isActive ? 'bg-white text-black' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
-                }`}
-              >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
-                {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
-                
-                {/* Tooltip cuando está colapsado */}
-                {isCollapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-zinc-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 border border-zinc-700">
-                    {item.label}
-                  </div>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Footer Logout */}
-        <div className="p-2 border-t border-zinc-800">
-          <button onClick={() => signOut && signOut()} className="flex items-center gap-3 w-full px-3 py-3 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-950/30 rounded-lg transition-colors">
-            <LogOut className="w-5 h-5 flex-shrink-0" />
-            {!isCollapsed && <span>Cerrar Sesión</span>}
-          </button>
-        </div>
-      </div>
-
-      {/* Overlay Mobile */}
-      {isMobileOpen && <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setIsMobileOpen(false)} />}
+      {/* En Desktop (lg): Siempre visible, controlado por estado isOpen solo para animación si quisiéramos colapsarlo totalmente, 
+          pero para este diseño simple, lo dejamos fijo en desktop y toggle en móvil. 
+          NOTA: Para que el margen del layout funcione bien, en desktop asumimos ancho fijo 64 (16rem). */}
       
-      {/* Spacer para empujar el contenido principal cuando el sidebar está abierto en mobile o colapsado en desktop */}
-      <div className={`lg:hidden h-16 ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}`}></div>
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-black border-r border-zinc-800 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
+            <h1 className="text-xl font-bold text-white tracking-tight">CRM Vantage</h1>
+            {/* Botón cerrar solo visible en móvil dentro del sidebar */}
+            <button onClick={() => setIsOpen(false)} className="lg:hidden text-zinc-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="px-6 py-2 border-b border-zinc-800/50">
+             <p className="text-xs text-zinc-500 capitalize truncate">{role || 'Usuario'}</p>
+             <p className="text-xs text-zinc-600 truncate">{user?.email}</p>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
+            {filteredItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => window.innerWidth < 1024 && setIsOpen(false)} // Cerrar en móvil al hacer click
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    isActive 
+                      ? 'bg-white text-black shadow-md shadow-white/10' 
+                      : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+                  }`}
+                >
+                  <item.icon className={`w-5 h-5 ${isActive ? 'stroke-2' : ''}`} />
+                  <span className="whitespace-nowrap">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Footer / Logout */}
+          <div className="p-4 border-t border-zinc-800 bg-black/50">
+            <button
+              onClick={signOut}
+              className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-950/30 rounded-lg transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Cerrar Sesión</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Overlay para móvil */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
     </>
   );
 }

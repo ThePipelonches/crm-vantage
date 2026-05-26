@@ -1,35 +1,20 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { Sidebar } from '../components/Sidebar';
-import TopBar from '../components/TopBar';
-import { MobileMenu } from '../components/MobileMenu';
-import { useState } from 'react';
+import { TopBar } from '../components/TopBar';
 
 export function AppLayout() {
-  const location = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const routeTitles: Record<string, string> = {
-    '/': 'Dashboard',
-    '/leads': 'Leads',
-    '/admin': 'Panel Admin',
-  };
-
-  const currentTitle = routeTitles[location.pathname] || 'Vantage CRM';
-
   return (
-    <div className="flex h-screen w-full bg-black text-white overflow-hidden">
+    <div className="flex h-screen bg-black overflow-hidden">
+      {/* Sidebar Fijo a la izquierda */}
       <Sidebar />
-      
-      <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
 
-      <div className="flex flex-col flex-1 min-w-0">
-        <TopBar 
-          title={currentTitle} 
-          showMenuButton 
-          onMenuClick={() => setMobileMenuOpen(true)} 
-        />
-
-        <main className="flex-1 overflow-y-auto p-6">
+      {/* Contenedor Principal */}
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out">
+        {/* Barra Superior (Solo móvil o para búsqueda/perfil) */}
+        <TopBar />
+        
+        {/* Área de Contenido Principal */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 scroll-smooth">
           <Outlet />
         </main>
       </div>

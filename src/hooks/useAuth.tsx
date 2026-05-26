@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
-export type UserRole = 'admin' | 'setter' | 'closer' | 'psychologist';
+export type UserRole = 'admin' | 'closer' | 'psychologist';
 
 export interface AppUser {
   id: string;
@@ -26,7 +26,7 @@ const USER_ROLES: Record<string, { role: UserRole; full_name: string }> = {
   'chav.negocios@gmail.com': { role: 'admin', full_name: 'Carlos Herrera' },
   'andresclinicapsicologica@gmail.com': { role: 'admin', full_name: 'Andres Betancourt' },
   'sebastian@bbr.mx': { role: 'admin', full_name: 'Sebastian BBR' },
-  'dicama2016@gmail.com': { role: 'setter', full_name: 'Diana Castro' },
+  'dicama2016@gmail.com': { role: 'closer', full_name: 'Diana Castro' },
   'isabel@metodovantage.com': { role: 'closer', full_name: 'Isabel Closer' },
   'valentina@metodovantage.com': { role: 'psychologist', full_name: 'Valentina Psicologa' },
   'christian@metodovantage.com': { role: 'psychologist', full_name: 'Christian Psicologo' },

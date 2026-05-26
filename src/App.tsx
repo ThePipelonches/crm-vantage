@@ -109,6 +109,7 @@ function AppRoutes() {
           } 
         />
       </Route>
+        <Route path="patients" element={<RoleProtectedRoute allowedRoles={['admin', 'psychologist']}><PatientsPage /></RoleProtectedRoute>} />
 
 
 

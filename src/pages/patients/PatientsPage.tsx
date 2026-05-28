@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { 
   UserPlus, Clock, CheckCircle, Stethoscope, AlertCircle, 
-  Search, Filter, Calendar, DollarSign, Users
+  Search, Filter, Calendar, DollarSign, Users, MoreHorizontal, Activity
 } from 'lucide-react';
 import {
   Select,
@@ -23,13 +23,19 @@ import {
   DialogFooter,
 } from "../../components/ui/dialog";
 import { Label } from '../../components/ui/label';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
 
 interface Patient {
   id: string;
   full_name: string;
   email: string;
   phone?: string;
-  status: 'pending_assignment' | 'active' | 'completed';
+  status: 'pending_assignment' | 'active' | 'inactive' | 'deserter';
   psychologist_id?: string;
   sale_total?: number;
   cash_collected?: number;
@@ -62,9 +68,10 @@ export default function PatientsPage() {
       if (user?.role === 'psychologist') {
         query = query.eq('psychologist_id', user.id);
       }
+      
       const { data: pData, error: pErr } = await query;
-      if (pErr) console.error("Error pacientes:", pErr);
-      else setPatients(pData || []);
+      if (pErr) throw pErr;
+      setPatients(pData || []);
 
       if (user?.role === 'admin') {
         const { data: profiles, error: profErr } = await supabase
@@ -73,47 +80,97 @@ export default function PatientsPage() {
           .eq('role', 'psychologist');
         if (!profErr && profiles) setPsychologists(profiles);
       }
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+    } catch (err: any) {
+      console.error("Error cargando pacientes:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchData(); }, [user?.role]);
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 10000); // Polling cada 10s
+    return () => clearInterval(interval);
+  }, [user?.role]);
 
-  const handleAssign = async () => {
+  const handleAssignPsychologist = async () => {
     if (!selectedPatientId || !selectedPsychId) return;
     setIsAssigning(true);
     try {
-      const { error } = await supabase.from('patients').update({ 
-        psychologist_id: selectedPsychId, status: 'active' 
-      }).eq('id', selectedPatientId);
+      const { error } = await supabase
+        .from('patients')
+        .update({ psychologist_id: selectedPsychId, status: 'active' })
+        .eq('id', selectedPatientId);
       if (error) throw error;
       alert('✅ Paciente asignado correctamente.');
       setSelectedPatientId(null);
       setSelectedPsychId('');
       fetchData();
-    } catch (err: any) { alert('❌ Error: ' + err.message); }
-    finally { setIsAssigning(false); }
+    } catch (err: any) {
+      alert('❌ Error: ' + err.message);
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleStatusChange = async (patientId: string, newStatus: Patient['status']) => {
+    try {
+      const { error } = await supabase
+        .from('patients')
+        .update({ status: newStatus })
+        .eq('id', patientId);
+      if (error) throw error;
+      fetchData();
+    } catch (err: any) {
+      alert('Error actualizando estado: ' + err.message);
+    }
+  };
+
+  const pendingPatients = patients.filter(p => p.status === 'pending_assignment');
+  const activePatients = patients.filter(p => ['active', 'inactive', 'deserter'].includes(p.status));
+
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'active': return 'bg-emerald-900/20 text-emerald-400 border-emerald-800';
+      case 'inactive': return 'bg-orange-900/20 text-orange-400 border-orange-800';
+      case 'deserter': return 'bg-red-900/20 text-red-400 border-red-800';
+      default: return 'bg-yellow-900/20 text-yellow-400 border-yellow-800';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch(status) {
+      case 'active': return 'Activo';
+      case 'inactive': return 'Inactivo';
+      case 'deserter': return 'Desertor';
+      default: return 'Pendiente';
+    }
   };
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex justify-between items-center border-b border-zinc-800 pb-6">
         <div>
           <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <UserPlus className="w-8 h-8 text-blue-500" /> Gestión de Pacientes
+            <UserPlus className="w-8 h-8 text-white" />
+            Gestión de Pacientes
           </h1>
           <p className="text-zinc-400 mt-2">
-            {user?.role === 'admin' ? "Asigna psicólogos a nuevos pacientes." : "Tus pacientes asignados."}
+            Administra la asignación y el estado clínico de tus pacientes.
           </p>
         </div>
+        
         {user?.role === 'admin' && (
-          <div className="flex gap-2">
-            <Badge className="bg-yellow-900/20 text-yellow-500 border-yellow-800 px-4 py-2">
-              <Clock className="w-4 h-4 mr-2" /> Pendientes: {patients.filter(p => p.status === 'pending_assignment').length}
-            </Badge>
-            <Badge className="bg-green-900/20 text-green-500 border-green-800 px-4 py-2">
-              <CheckCircle className="w-4 h-4 mr-2" /> Activos: {patients.filter(p => p.status === 'active').length}
-            </Badge>
+          <div className="flex gap-3">
+             <Badge className={`${pendingPatients.length > 0 ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-zinc-800'} text-black border-none px-4 py-2 font-bold`}>
+                <Clock className="w-4 h-4 mr-2" />
+                Pendientes: {pendingPatients.length}
+             </Badge>
+             <Badge variant="outline" className="bg-zinc-900 text-zinc-400 border-zinc-800 px-4 py-2">
+                <Activity className="w-4 h-4 mr-2" />
+                Activos/Gestión: {activePatients.length}
+             </Badge>
           </div>
         )}
       </div>
@@ -122,82 +179,177 @@ export default function PatientsPage() {
         <div className="flex justify-center items-center h-64 text-zinc-500">
           <Clock className="w-8 h-8 animate-spin mr-2" /> Cargando...
         </div>
-      ) : patients.length === 0 ? (
-        <div className="text-center py-20 bg-zinc-900/50 rounded-xl border border-dashed border-zinc-800">
-          <Users className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-zinc-300">No hay pacientes</h3>
-          <p className="text-zinc-500">Los pacientes aparecerán aquí al cerrar ventas.</p>
-        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {patients.map((patient) => (
-            <Card key={patient.id} className={`bg-zinc-900 border-zinc-800 transition-all hover:shadow-lg ${patient.status === 'pending_assignment' ? 'border-l-4 border-l-yellow-500' : 'border-l-4 border-l-green-500'}`}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-white text-lg">{patient.full_name}</CardTitle>
-                    <CardDescription className="text-zinc-400">{patient.email}</CardDescription>
-                  </div>
-                  {patient.status === 'pending_assignment' ? (
-                    <Badge className="bg-yellow-900/50 text-yellow-400 border-yellow-700"><Clock className="w-3 h-3 mr-1" /> Pendiente</Badge>
-                  ) : (
-                    <Badge className="bg-green-900/50 text-green-400 border-green-700"><CheckCircle className="w-3 h-3 mr-1" /> Activo</Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-800 text-xs space-y-1">
-                  <div className="flex justify-between"><span className="text-zinc-400">Valor Plan:</span><span className="text-white font-mono">${patient.sale_total?.toLocaleString() || '0'}</span></div>
-                  <div className="flex justify-between"><span className="text-zinc-400">Pago Inicial:</span><span className="text-green-400 font-mono">${patient.cash_collected?.toLocaleString() || '0'}</span></div>
-                  {patient.installments_count && patient.installments_count > 0 && (
-                    <div className="flex justify-between pt-1 border-t border-zinc-800"><span className="text-zinc-400">Cuotas:</span><span className="text-zinc-300">{patient.installments_count} x ${patient.installment_value?.toLocaleString()}</span></div>
-                  )}
-                </div>
-                {patient.notes && <div className="text-xs text-zinc-500 italic">"{patient.notes}"</div>}
-                
-                {user?.role === 'admin' && patient.status === 'pending_assignment' && (
-                  <Button onClick={() => { setSelectedPatientId(patient.id); setSelectedPsychId(''); }} className="w-full bg-blue-600 hover:bg-blue-700 text-white" size="sm">
-                    <Stethoscope className="w-4 h-4 mr-2" /> Asignar Psicólogo
-                  </Button>
-                )}
-                {patient.status === 'active' && (
-                  <div className="pt-2 flex items-center gap-2 text-sm text-green-400 bg-green-900/10 p-2 rounded border border-green-900/30">
-                    <Stethoscope className="w-4 h-4" /> Psicólogo Asignado
-                  </div>
-                )}
-                <div className="text-xs text-zinc-600 flex items-center gap-1 pt-2 border-t border-zinc-800">
-                  <Calendar className="w-3 h-3" /> Creado: {new Date(patient.created_at).toLocaleDateString()}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <>
+          {/* SECCIÓN 1: PENDIENTES DE ASIGNACIÓN */}
+          {pendingPatients.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                <Clock className="w-5 h-5 text-yellow-500" />
+                Pendientes de Asignación
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pendingPatients.map((patient) => (
+                  <Card key={patient.id} className="bg-zinc-900 border-zinc-800 hover:border-yellow-500/50 transition-all shadow-lg shadow-yellow-900/10">
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-white text-lg">{patient.full_name}</CardTitle>
+                          <CardDescription className="text-zinc-400">{patient.email}</CardDescription>
+                        </div>
+                        <Badge className="bg-yellow-500 text-black hover:bg-yellow-600 border-none font-medium">
+                          Nuevo
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="bg-black/30 p-3 rounded-lg border border-zinc-800 text-xs space-y-1">
+                        <div className="flex justify-between text-zinc-400">
+                          <span>Valor Plan:</span>
+                          <span className="text-white font-mono">${patient.sale_total?.toLocaleString() || '0'}</span>
+                        </div>
+                        <div className="flex justify-between text-zinc-400">
+                          <span>Pago Inicial:</span>
+                          <span className="text-emerald-400 font-mono">${patient.cash_collected?.toLocaleString() || '0'}</span>
+                        </div>
+                      </div>
+                      
+                      {user?.role === 'admin' && (
+                        <Button 
+                          onClick={() => { setSelectedPatientId(patient.id); setSelectedPsychId(''); }}
+                          className="w-full bg-white text-black hover:bg-zinc-200 font-medium"
+                        >
+                          <Stethoscope className="w-4 h-4 mr-2" />
+                          Asignar Psicólogo
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* SECCIÓN 2: PACIENTES ACTIVOS / EN GESTIÓN */}
+          {activePatients.length > 0 && (
+            <div className="space-y-4 pt-8 border-t border-zinc-800">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                <Activity className="w-5 h-5 text-emerald-500" />
+                Pacientes en Seguimiento
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {activePatients.map((patient) => (
+                  <Card key={patient.id} className="bg-zinc-900 border-zinc-800 hover:border-zinc-600 transition-all">
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-white text-lg">{patient.full_name}</CardTitle>
+                          <CardDescription className="text-zinc-400">{patient.email}</CardDescription>
+                        </div>
+                        
+                        {/* Dropdown de Estado */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-zinc-800">
+                              <MoreHorizontal className="h-4 w-4 text-zinc-400" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-white">
+                            <DropdownMenuItem onClick={() => handleStatusChange(patient.id, 'active')} className="hover:bg-zinc-800 focus:text-emerald-400">
+                              <CheckCircle className="w-4 h-4 mr-2 text-emerald-500" /> Activo
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleStatusChange(patient.id, 'inactive')} className="hover:bg-zinc-800 focus:text-orange-400">
+                              <Clock className="w-4 h-4 mr-2 text-orange-500" /> Inactivo
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleStatusChange(patient.id, 'deserter')} className="hover:bg-zinc-800 focus:text-red-400">
+                              <AlertCircle className="w-4 h-4 mr-2 text-red-500" /> Desertor
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <div className="mt-2">
+                         <Badge className={`${getStatusColor(patient.status)} border font-medium`}>
+                            {getStatusLabel(patient.status)}
+                         </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="bg-black/30 p-3 rounded-lg border border-zinc-800 text-xs space-y-1">
+                        <div className="flex justify-between text-zinc-400">
+                          <span>Psicólogo:</span>
+                          <span className="text-zinc-200 truncate max-w-[150px]">{patient.psychologist_id ? 'Asignado' : 'Sin asignar'}</span>
+                        </div>
+                      </div>
+                      {patient.status === 'active' && (
+                         <div className="pt-2">
+                            <Button variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white" size="sm">
+                                Ver Historia Clínica
+                            </Button>
+                         </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {patients.length === 0 && (
+             <div className="text-center py-20 bg-zinc-900/50 rounded-xl border border-dashed border-zinc-800">
+                <Users className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-zinc-300">No hay pacientes</h3>
+                <p className="text-zinc-500">Los pacientes aparecerán aquí al cerrar ventas en el pipeline.</p>
+             </div>
+          )}
+        </>
       )}
 
-      {/* Modal */}
+      {/* Modal de Asignación */}
       <Dialog open={!!selectedPatientId} onOpenChange={(open) => !open && setSelectedPatientId(null)}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-white sm:max-w-md">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><UserPlus className="w-5 h-5 text-blue-500" /> Asignar Psicólogo</DialogTitle></DialogHeader>
+        <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <UserPlus className="w-5 h-5 text-white" />
+              Asignar Psicólogo
+            </DialogTitle>
+          </DialogHeader>
+          
           <div className="py-4 space-y-4">
-            <p className="text-sm text-zinc-400">Selecciona un profesional para este paciente.</p>
+            <p className="text-sm text-zinc-400">
+              Selecciona un profesional para este paciente.
+            </p>
+            
             <div className="space-y-2">
-              <Label>Profesional</Label>
+              <Label htmlFor="psych-select" className="text-zinc-300">Profesional</Label>
               <Select value={selectedPsychId} onValueChange={setSelectedPsychId}>
-                <SelectTrigger className="bg-zinc-950 border-zinc-800 text-white">
+                <SelectTrigger id="psych-select" className="bg-zinc-900 border-zinc-800 text-white focus:ring-zinc-700">
                   <SelectValue placeholder="Seleccionar..." />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
-                  {psychologists.length > 0 ? psychologists.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
-                  )) : <div className="p-2 text-xs text-zinc-500">No hay psicólogos</div>}
+                  {psychologists.length > 0 ? (
+                    psychologists.map((psych) => (
+                      <SelectItem key={psych.id} value={psych.id}>
+                        {psych.full_name || psych.email}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="p-2 text-xs text-zinc-500">No hay psicólogos registrados</div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedPatientId(null)} className="border-zinc-700 text-zinc-300">Cancelar</Button>
-            <Button onClick={handleAssign} disabled={!selectedPsychId || isAssigning} className="bg-blue-600 hover:bg-blue-700 text-white">
-              {isAssigning ? 'Asignando...' : 'Confirmar'}
+            <Button variant="outline" onClick={() => setSelectedPatientId(null)} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleAssignPsychologist} 
+              disabled={!selectedPsychId || isAssigning}
+              className="bg-white text-black hover:bg-zinc-200 font-medium"
+            >
+              {isAssigning ? 'Asignando...' : 'Confirmar Asignación'}
             </Button>
           </DialogFooter>
         </DialogContent>

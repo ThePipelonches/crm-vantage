@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
-// --- Componente de Protección ---
+// --- Componente de ProtecciÃ³n ---
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, loading, role } = useAuth();
   if (loading) return <div className="h-screen flex items-center justify-center bg-black text-white">Cargando...</div>;
@@ -33,8 +33,8 @@ function Sidebar({ isOpen, toggle }: { isOpen: boolean; toggle: () => void }) {
     { path: '/commercial', label: 'Comercial', icon: Briefcase, roles: ['admin', 'closer'] },
     { path: '/leads', label: 'Leads', icon: Users, roles: ['admin', 'closer'] },
     { path: '/patients', label: 'Pacientes', icon: Activity, roles: ['admin', 'psychologist'] },
-    { path: '/clinical', label: 'Clínico', icon: Stethoscope, roles: ['admin', 'psychologist'] },
-    { path: '/psychologist', label: 'Mi Gestión', icon: Users, roles: ['psychologist'] },
+    { path: '/clinical', label: 'ClÃ­nico', icon: Stethoscope, roles: ['admin', 'psychologist'] },
+    { path: '/psychologist', label: 'Mi GestiÃ³n', icon: Users, roles: ['psychologist'] },
   ];
 
   return (
@@ -79,7 +79,7 @@ function Sidebar({ isOpen, toggle }: { isOpen: boolean; toggle: () => void }) {
             </div>
           </div>
           <button onClick={signOut} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-red-950/30 rounded-lg transition-colors">
-            <LogOut className="w-4 h-4" /> Cerrar Sesión
+            <LogOut className="w-4 h-4" /> Cerrar SesiÃ³n
           </button>
         </div>
       </div>

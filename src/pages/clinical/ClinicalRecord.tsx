@@ -24,7 +24,7 @@ export default function ClinicalRecord() {
   const [rolPlan, setRolPlan] = useState('');
   const [savingRol, setSavingRol] = useState(false);
 
-  // Estados Evaluación (Solo puntajes)
+  // Estados EvaluaciÃ³n (Solo puntajes)
   const [scores, setScores] = useState<Record<string, number>>({});
   const [evalType, setEvalType] = useState('pcq');
 
@@ -45,14 +45,14 @@ export default function ClinicalRecord() {
   if (loading) return <div className="p-6 text-white">Cargando...</div>;
   if (!patient) return <div className="p-6 text-red-400">Paciente no encontrado</div>;
 
-  // --- Lógica ROL ---
+  // --- LÃ³gica ROL ---
   const handleSaveRol = async () => {
     if (!user) return alert("Usuario no identificado");
     setSavingRol(true);
     
     // Mapeo correcto de colores a valores de BD
     let dbLevel = rolLevel; 
-    // Si el select devuelve 'green'/'yellow'/'red', lo mapeamos aquí si es necesario. 
+    // Si el select devuelve 'green'/'yellow'/'red', lo mapeamos aquÃ­ si es necesario. 
     // Asumiremos que el select ya devuelve 'low'/'medium'/'high' directamente para evitar errores.
 
     try {
@@ -64,17 +64,17 @@ export default function ClinicalRecord() {
         created_by: user.id
       });
       if (error) throw error;
-      alert("✅ ROL guardado correctamente");
+      alert("âœ… ROL guardado correctamente");
       setRolJustification('');
       setRolPlan('');
     } catch (e: any) {
-      alert(`❌ Error: ${e.message}`);
+      alert(`âŒ Error: ${e.message}`);
     } finally {
       setSavingRol(false);
     }
   };
 
-  // --- Lógica Evaluaciones (Cálculos automáticos según puntaje ingresado) ---
+  // --- LÃ³gica Evaluaciones (CÃ¡lculos automÃ¡ticos segÃºn puntaje ingresado) ---
   const getInterpretation = (type: string, score: number) => {
     if (!score && score !== 0) return { label: '-', color: 'bg-zinc-800' };
     
@@ -128,7 +128,7 @@ export default function ClinicalRecord() {
     const { error } = await supabase.from('psychometric_results').insert(payload);
     if (error) alert("Error al guardar: " + error.message);
     else {
-      alert("✅ Evaluación guardada");
+      alert("âœ… EvaluaciÃ³n guardada");
       setScores({});
     }
   };
@@ -140,12 +140,12 @@ export default function ClinicalRecord() {
         <Button variant="ghost" onClick={() => navigate('/patients')} className="text-zinc-400 hover:text-white">
           <ArrowLeft className="w-5 h-5 mr-2" /> Volver
         </Button>
-        <h1 className="text-2xl font-bold text-white">Historia Clínica: {patient.full_name}</h1>
+        <h1 className="text-2xl font-bold text-white">Historia ClÃ­nica: {patient.full_name}</h1>
       </div>
 
       {/* Tabs Principales */}
       <div className="flex gap-2 border-b border-zinc-800">
-        <button onClick={() => setActiveTab('data')} className={`pb-2 px-4 text-sm font-medium ${activeTab === 'data' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500'}`}>Datos Clínicos</button>
+        <button onClick={() => setActiveTab('data')} className={`pb-2 px-4 text-sm font-medium ${activeTab === 'data' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500'}`}>Datos ClÃ­nicos</button>
         <button onClick={() => setActiveTab('rol')} className={`pb-2 px-4 text-sm font-medium ${activeTab === 'rol' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500'}`}>ROL Semanal</button>
         <button onClick={() => setActiveTab('eval')} className={`pb-2 px-4 text-sm font-medium ${activeTab === 'eval' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500'}`}>Evaluaciones</button>
       </div>
@@ -153,7 +153,7 @@ export default function ClinicalRecord() {
       {/* CONTENIDO: DATOS */}
       {activeTab === 'data' && (
         <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader><CardTitle className="text-white">Información General</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-white">InformaciÃ³n General</CardTitle></CardHeader>
           <CardContent className="space-y-4 text-zinc-300">
             <p><Mail className="inline w-4 h-4 mr-2"/> {patient.email}</p>
             <p><Phone className="inline w-4 h-4 mr-2"/> {patient.phone || 'N/A'}</p>
@@ -179,9 +179,9 @@ export default function ClinicalRecord() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
-                      <SelectItem value="low">🟢 Bajo (Verde)</SelectItem>
-                      <SelectItem value="medium">🟡 Medio (Amarillo)</SelectItem>
-                      <SelectItem value="high">🔴 Alto (Rojo)</SelectItem>
+                      <SelectItem value="low">ðŸŸ¢ Bajo (Verde)</SelectItem>
+                      <SelectItem value="medium">ðŸŸ¡ Medio (Amarillo)</SelectItem>
+                      <SelectItem value="high">ðŸ”´ Alto (Rojo)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -190,16 +190,16 @@ export default function ClinicalRecord() {
               {(rolLevel === 'medium' || rolLevel === 'high') && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                   <div>
-                    <Label className="text-yellow-500">Justificación del Riesgo</Label>
+                    <Label className="text-yellow-500">JustificaciÃ³n del Riesgo</Label>
                     <Textarea 
                       value={rolJustification} 
                       onChange={(e) => setRolJustification(e.target.value)}
                       className="bg-zinc-950 border-zinc-700 text-white"
-                      placeholder="Explique por qué se clasifica como riesgo medio/alto..."
+                      placeholder="Explique por quÃ© se clasifica como riesgo medio/alto..."
                     />
                   </div>
                   <div>
-                    <Label className="text-blue-400">Plan de Acción</Label>
+                    <Label className="text-blue-400">Plan de AcciÃ³n</Label>
                     <Textarea 
                       value={rolPlan} 
                       onChange={(e) => setRolPlan(e.target.value)}
@@ -266,12 +266,12 @@ export default function ClinicalRecord() {
                     <Badge className={getInterpretation('mbi_exh', scores['mbi_exh']).color}>{getInterpretation('mbi_exh', scores['mbi_exh']).label}</Badge>
                   </div>
                   <div className="space-y-2">
-                    <Label>Despersonalización (Suma)</Label>
+                    <Label>DespersonalizaciÃ³n (Suma)</Label>
                     <Input type="number" value={scores['mbi_dep']||''} onChange={(e)=>setScores({...scores, 'mbi_dep':parseFloat(e.target.value)})} className="bg-zinc-950 border-zinc-700 text-white" />
                     <Badge className={getInterpretation('mbi_dep', scores['mbi_dep']).color}>{getInterpretation('mbi_dep', scores['mbi_dep']).label}</Badge>
                   </div>
                   <div className="space-y-2">
-                    <Label>Realización Personal (Suma)</Label>
+                    <Label>RealizaciÃ³n Personal (Suma)</Label>
                     <Input type="number" value={scores['mbi_per']||''} onChange={(e)=>setScores({...scores, 'mbi_per':parseFloat(e.target.value)})} className="bg-zinc-950 border-zinc-700 text-white" />
                     <Badge className={getInterpretation('mbi_pers', scores['mbi_per']).color}>{getInterpretation('mbi_pers', scores['mbi_per']).label}</Badge>
                   </div>
@@ -283,7 +283,7 @@ export default function ClinicalRecord() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {['dass_d','dass_a','dass_s'].map((k) => (
                      <div key={k} className="space-y-2">
-                       <Label>{k==='dass_d'?'Depresión':k==='dass_a'?'Ansiedad':'Estrés'} (Suma x2)</Label>
+                       <Label>{k==='dass_d'?'DepresiÃ³n':k==='dass_a'?'Ansiedad':'EstrÃ©s'} (Suma x2)</Label>
                        <Input type="number" value={scores[k]||''} onChange={(e)=>setScores({...scores, [k]:parseFloat(e.target.value)})} className="bg-zinc-950 border-zinc-700 text-white" />
                        <Badge className={getInterpretation(k, scores[k]).color}>{getInterpretation(k, scores[k]).label}</Badge>
                      </div>

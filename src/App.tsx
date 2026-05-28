@@ -1,56 +1,68 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
-import LoginPage from './pages/LoginPage'; // ✅ Ruta corregida (sin carpeta auth)
 import LeadsPage from './pages/leads/Leads';
 import PatientsPage from './pages/patients/PatientsPage';
 import CommercialDashboard from './pages/commercial/Dashboard';
 import PsychologistDashboard from './pages/psychologist/Dashboard';
 import Dashboard from './pages/admin/Dashboard';
+import LoginPage from './pages/LoginPage'; // Ruta corregida
 
 // Componente de Protección de Rutas
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, loading } = useAuth();
 
-  if (loading) return <div className="h-screen w-full flex items-center justify-center bg-black text-white">Cargando...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center bg-black text-white">Cargando...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role || '')) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 }
 
-// Contenido Principal de la App
+// Componente Principal de la Aplicación (Dentro del Provider)
 function AppContent() {
-  const { user, loading, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const location = useLocation();
 
-  if (loading) return <div className="h-screen w-full flex items-center justify-center bg-black text-white">Iniciando...</div>;
-  if (!user) return <LoginPage />; // ✅ Muestra el login si no hay usuario
+  // Si no hay usuario, mostrar Login directamente
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <LoginPage />
+      </div>
+    );
+  }
 
+  // Si hay usuario, mostrar Layout con Navegación
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       {/* Header Simple */}
       <header className="border-b border-zinc-800 p-4 flex justify-between items-center bg-zinc-900 sticky top-0 z-50">
-        <h1 className="text-xl font-bold text-white">Vantage CRM <span className="text-xs font-normal text-zinc-500">({user.role})</span></h1>
-        <div className="flex gap-4 items-center">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold text-white">Vantage CRM</h1>
+          <span className="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">{user.role}</span>
+        </div>
+        
+        <div className="flex items-center gap-4">
           <nav className="hidden md:flex gap-4 text-sm">
             {(user.role === 'admin' || user.role === 'closer') && (
-              <a href="/leads" className={`hover:text-white transition-colors ${location.pathname === '/leads' ? 'text-white font-bold border-b-2 border-white' : 'text-zinc-400'}`}>Leads</a>
+              <a href="/leads" className={`hover:text-white transition ${location.pathname === '/leads' ? 'text-white font-bold' : 'text-zinc-400'}`}>Leads</a>
             )}
             {(user.role === 'admin' || user.role === 'psychologist') && (
-              <a href="/patients" className={`hover:text-white transition-colors ${location.pathname === '/patients' ? 'text-white font-bold border-b-2 border-white' : 'text-zinc-400'}`}>Pacientes</a>
+              <a href="/patients" className={`hover:text-white transition ${location.pathname === '/patients' ? 'text-white font-bold' : 'text-zinc-400'}`}>Pacientes</a>
             )}
             {user.role === 'admin' && (
-              <a href="/" className={`hover:text-white transition-colors ${location.pathname === '/' ? 'text-white font-bold border-b-2 border-white' : 'text-zinc-400'}`}>Dashboard</a>
+              <a href="/" className={`hover:text-white transition ${location.pathname === '/' ? 'text-white font-bold' : 'text-zinc-400'}`}>Dashboard</a>
             )}
           </nav>
-          <button onClick={() => signOut()} className="text-xs bg-red-900/50 hover:bg-red-900 text-red-200 px-3 py-1.5 rounded border border-red-800 transition-colors">
+          
+          <button onClick={() => signOut()} className="text-xs bg-red-900/50 hover:bg-red-900 text-red-200 px-3 py-1.5 rounded transition-colors border border-red-900">
             Salir
           </button>
         </div>
       </header>
 
-      {/* Área de Contenido */}
-      <main className="flex-1 overflow-auto p-4 md:p-6">
+      {/* Contenido de las Rutas */}
+      <main className="flex-1 p-6 overflow-auto">
         <Routes>
           <Route path="/" element={<ProtectedRoute allowedRoles={['admin']}><Dashboard /></ProtectedRoute>} />
           <Route path="/leads" element={<ProtectedRoute allowedRoles={['admin', 'closer']}><LeadsPage /></ProtectedRoute>} />
@@ -64,6 +76,7 @@ function AppContent() {
   );
 }
 
+// Exportación por defecto con Providers
 export default function App() {
   return (
     <BrowserRouter>

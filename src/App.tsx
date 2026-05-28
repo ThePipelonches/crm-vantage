@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { ErrorBoundary } from './components/ErrorBoundary'; // Importar el paracaídas
 import LoginPage from './pages/LoginPage';
 import LeadsPage from './pages/leads/Leads';
 import PatientsPage from './pages/patients/PatientsPage';
@@ -7,24 +8,15 @@ import Dashboard from './pages/admin/Dashboard';
 import CommercialDashboard from './pages/commercial/Dashboard';
 import PsychologistDashboard from './pages/psychologist/Dashboard';
 
+// ... (Mantén tus componentes ProtectedRoute y AppContent iguales que antes) ...
+// Asegúrate de que AppContent maneje user null correctamente
+
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, loading, role } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-black text-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-        <p className="text-zinc-400">Verificando sesión...</p>
-      </div>
-    );
-  }
-
+  if (loading) return <div className="h-screen flex items-center justify-center bg-black text-white">Cargando...</div>;
   if (!user) return <Navigate to="/login" replace />;
-
-  if (allowedRoles.length > 0 && !allowedRoles.includes(role || '')) {
-    return <Navigate to="/" replace />;
-  }
-
+  if (allowedRoles.length > 0 && !allowedRoles.includes(role || '')) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -33,7 +25,7 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Si no hay usuario, mostrar solo Login (sin layout)
+  // Si no hay usuario, mostrar solo login
   if (!user) {
     return (
       <Routes>
@@ -43,7 +35,7 @@ function AppContent() {
     );
   }
 
-  // Si hay usuario, mostrar Layout con Dashboard
+  // Si hay usuario, mostrar layout con dashboard
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       <header className="border-b border-zinc-800 p-4 flex justify-between items-center bg-zinc-900">
@@ -63,7 +55,6 @@ function AppContent() {
           <button onClick={signOut} className="text-xs bg-zinc-800 hover:bg-red-900 px-3 py-1 rounded">Salir</button>
         </div>
       </header>
-
       <main className="flex-1 p-6 overflow-auto">
         <Routes>
           <Route path="/" element={<ProtectedRoute allowedRoles={['admin']}><Dashboard /></ProtectedRoute>} />
@@ -80,10 +71,13 @@ function AppContent() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </BrowserRouter>
+    // ENVOLVER TODO CON ERRORBOUNDARY
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

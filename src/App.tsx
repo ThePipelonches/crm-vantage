@@ -6,7 +6,7 @@ import {
   LogOut, UserPlus, Activity, FileText 
 } from 'lucide-react';
 
-// Páginas
+// PÃ¡ginas
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/admin/Dashboard';
 import LeadsPage from './pages/leads/Leads';
@@ -15,15 +15,15 @@ import CommercialDashboard from './pages/commercial/Dashboard';
 import PsychologistDashboard from './pages/psychologist/Dashboard';
 import ClinicalRecord from './pages/clinical/ClinicalRecord';
 
-// Componente de Protección de Rutas
+// Componente de ProtecciÃ³n de Rutas
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, loading, role } = useAuth();
 
-  if (loading) {
+  if (loading || user === null) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-black text-white">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
-        <p className="text-zinc-400">Verificando sesión...</p>
+        <p className="text-zinc-400">Verificando sesiÃ³n...</p>
       </div>
     );
   }
@@ -86,7 +86,7 @@ function MainLayout() {
           </button>
         </div>
 
-        {/* Menú */}
+        {/* MenÃº */}
         <nav className="flex-1 overflow-y-auto py-4 space-y-1">
           {filteredMenu.map((item) => {
             const Icon = item.icon;
@@ -115,10 +115,10 @@ function MainLayout() {
             onClick={() => signOut()}
             className={`w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-colors
               ${!isSidebarOpen ? 'justify-center' : ''}`}
-            title={!isSidebarOpen ? 'Cerrar Sesión' : ''}
+            title={!isSidebarOpen ? 'Cerrar SesiÃ³n' : ''}
           >
             <LogOut size={20} className="shrink-0" />
-            {isSidebarOpen && <span>Cerrar Sesión</span>}
+            {isSidebarOpen && <span>Cerrar SesiÃ³n</span>}
           </button>
         </div>
       </aside>
@@ -132,7 +132,7 @@ function MainLayout() {
             <Route path="/patients" element={<ProtectedRoute allowedRoles={['admin', 'psychologist']}><PatientsPage /></ProtectedRoute>} />
             <Route path="/commercial" element={<ProtectedRoute allowedRoles={['admin', 'closer']}><CommercialDashboard /></ProtectedRoute>} />
             <Route path="/psychologist" element={<ProtectedRoute allowedRoles={['psychologist']}><PsychologistDashboard /></ProtectedRoute>} />
-            {/* Ruta Historia Clínica */}
+            {/* Ruta Historia ClÃ­nica */}
             <Route path="/clinical-record/:patientId" element={<ProtectedRoute allowedRoles={['admin', 'psychologist']}><ClinicalRecord /></ProtectedRoute>} />
             
             <Route path="*" element={<Navigate to="/" replace />} />

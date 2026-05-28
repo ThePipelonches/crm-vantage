@@ -7,7 +7,7 @@ import Dashboard from './pages/admin/Dashboard';
 import CommercialDashboard from './pages/commercial/Dashboard';
 import PsychologistDashboard from './pages/psychologist/Dashboard';
 
-// 1. Componente de Protección (USA useAuth aquí, es seguro)
+// 1. Componente para proteger rutas privadas
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, loading, role } = useAuth();
 
@@ -29,17 +29,23 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
   return <>{children}</>;
 }
 
-// 2. Componente Principal del Layout (USA useAuth aquí, es seguro)
+// 2. Componente principal que decide qué mostrar (Login o Dashboard)
 function AppContent() {
   const { user, role, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Si no hay usuario, mostramos solo el login (ya manejado en rutas, pero por seguridad)
+  // CASO CRÍTICO: Si NO hay usuario, mostramos SOLO el Login
   if (!user) {
-    return null; 
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
   }
 
+  // Si HAY usuario, mostramos la aplicación completa
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       <header className="border-b border-zinc-800 p-4 flex justify-between items-center bg-zinc-900">
@@ -74,18 +80,12 @@ function AppContent() {
   );
 }
 
-// 3. Componente Raíz (NO usa useAuth, solo provee el contexto)
+// 3. Exportación por defecto con Providers
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          {/* Ruta pública de Login */}
-          <Route path="/login" element={<LoginPage />} />
-          
-          {/* Todas las demás rutas usan AppContent (que tiene acceso al Auth) */}
-          <Route path="/*" element={<AppContent />} />
-        </Routes>
+        <AppContent />
       </AuthProvider>
     </BrowserRouter>
   );

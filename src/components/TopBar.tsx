@@ -28,12 +28,12 @@ export default function TopBar({ title, showMenuButton, onMenuClick }: TopBarPro
   useEffect(() => {
     // 1. Suscribirse a nuevos leads en tiempo real
     const unsubscribe = subscribeToNewLeads((notif) => {
-      setNotifications((prev) => [notif, ...prev].slice(0, 10)); // Guardar últimos 10
+      setNotifications((prev) => [notif, ...prev].slice(0, 10)); // Guardar Ãºltimos 10
       
       // Sonido opcional (descomentar si tienes un archivo de audio)
       // new Audio('/notification.mp3').play().catch(() => {});
       
-      // Alerta visual nativa del navegador si está en segundo plano
+      // Alerta visual nativa del navegador si estÃ¡ en segundo plano
       if (document.hidden) {
         new Notification(notif.title, { body: notif.message });
       }
@@ -109,7 +109,7 @@ export default function TopBar({ title, showMenuButton, onMenuClick }: TopBarPro
                 {urgentCount > 0 && (
                   <div className="p-3 bg-red-950/30 border-t border-red-900/50">
                     <p className="text-xs text-red-400 font-bold">
-                      ⚠️ Hay {urgentCount} leads con más de 5 min sin contactar.
+                      âš ï¸ Hay {urgentCount} leads con mÃ¡s de 5 min sin contactar.
                     </p>
                   </div>
                 )}
@@ -128,14 +128,14 @@ export default function TopBar({ title, showMenuButton, onMenuClick }: TopBarPro
           <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-white">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user?.full_name || 'Usuario'}</p>
+                <p className="text-sm font-medium leading-none">{(user?.user_metadata as any)?.full_name || user?.email || 'Usuario'}</p>
                 <p className="text-xs leading-none text-zinc-400">{user?.email}</p>
                 <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1">{user?.role}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-zinc-800" />
             <DropdownMenuItem onClick={signOut} className="text-red-400 focus:text-red-400 focus:bg-red-950/30 cursor-pointer">
-              Cerrar Sesión
+              Cerrar SesiÃ³n
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -5,7 +5,7 @@
     "type":  "module",
     "scripts":  {
                     "dev":  "vite",
-                    "build":  "tsc --noEmit \u0026\u0026 vite build --force",
+                    "build":  "tsc --noEmit \u0026\u0026 vite build",
                     "preview":  "vite preview",
                     "lint":  "eslint .",
                     "clean":  "rimraf node_modules/.vite dist"

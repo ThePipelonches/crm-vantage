@@ -1,15 +1,15 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 
-// Importar páginas existentes (Solo las que sabemos que existen)
-import LoginPage from './pages/auth/LoginPage'; // Asegúrate de que este archivo exista, si no, crea uno básico
+// Importar pÃ¡ginas existentes (Solo las que sabemos que existen)
+import LoginPage from './pages/LoginPage'; // AsegÃºrate de que este archivo exista, si no, crea uno bÃ¡sico
 import Dashboard from './pages/admin/Dashboard';
 import LeadsPage from './pages/leads/Leads';
 import PatientsPage from './pages/patients/PatientsPage';
 import CommercialDashboard from './pages/commercial/Dashboard';
 import PsychologistDashboard from './pages/psychologist/Dashboard';
 
-// Componente de Protección de Rutas
+// Componente de ProtecciÃ³n de Rutas
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, loading } = useAuth();
 

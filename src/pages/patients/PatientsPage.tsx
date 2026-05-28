@@ -64,7 +64,7 @@ export default function PatientsPage() {
     try {
       let query = supabase.from('patients').select('*').order('created_at', { ascending: false });
       
-      // Si es psicÃ³logo, solo ve los suyos (independientemente de la pestaÃ±a)
+      // Si es psicÃƒÂ³logo, solo ve los suyos (independientemente de la pestaÃƒÂ±a)
       if (user?.role === 'psychologist') {
         query = query.eq('psychologist_id', user.id);
       }
@@ -74,7 +74,7 @@ export default function PatientsPage() {
       if (pErr) throw pErr;
       setPatients(pData || []);
       
-      // Cargar psicÃ³logos solo si es admin
+      // Cargar psicÃƒÂ³logos solo si es admin
       if (user?.role === 'admin') {
         const { data: profiles, error: profErr } = await supabase
           .from('profiles')
@@ -98,7 +98,7 @@ export default function PatientsPage() {
 
   const handleAssignPsychologist = async () => {
     if (!selectedPatientId || !selectedPsychId) {
-      alert("Selecciona un psicÃ³logo");
+      alert("Selecciona un psicÃƒÂ³logo");
       return;
     }
     setIsAssigning(true);
@@ -110,12 +110,12 @@ export default function PatientsPage() {
 
       if (error) throw error;
 
-      alert('âœ… Paciente asignado correctamente.');
+      alert('Ã¢Å“â€¦ Paciente asignado correctamente.');
       setSelectedPatientId(null);
       setSelectedPsychId('');
-      fetchData(); // Recargar manualmente tras Ã©xito
+      fetchData(); // Recargar manualmente tras ÃƒÂ©xito
     } catch (err: any) {
-      alert('âŒ Error: ' + err.message);
+      alert('Ã¢ÂÅ’ Error: ' + err.message);
     } finally {
       setIsAssigning(false);
     }
@@ -126,16 +126,16 @@ export default function PatientsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header con NavegaciÃ³n */}
+      {/* Header con NavegaciÃƒÂ³n */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-800 pb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={() => navigate('/')} className="text-zinc-400 hover:text-white hover:bg-zinc-800">
             <ArrowLeft className="w-5 h-5 mr-2" /> Volver
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-white">GestiÃ³n de Pacientes</h1>
+            <h1 className="text-3xl font-bold text-white">GestiÃƒÂ³n de Pacientes</h1>
             <p className="text-zinc-400 text-sm mt-1">
-              Administra asignaciones y seguimientos clÃ­nicos.
+              Administra asignaciones y seguimientos clÃƒÂ­nicos.
             </p>
           </div>
         </div>
@@ -153,7 +153,7 @@ export default function PatientsPage() {
         </div>
       ) : (
         <>
-          {/* PestaÃ±as de NavegaciÃ³n */}
+          {/* PestaÃƒÂ±as de NavegaciÃƒÂ³n */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-zinc-900 border border-zinc-800">
               <TabsTrigger value="pending" className="data-[state=active]:bg-yellow-900/20 data-[state=active]:text-yellow-500">
@@ -170,7 +170,7 @@ export default function PatientsPage() {
                 <div className="text-center py-20 bg-zinc-900/50 rounded-xl border border-dashed border-zinc-800">
                   <UserPlus className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-zinc-300">No hay pacientes pendientes</h3>
-                  <p className="text-zinc-500">Los leads cerrados aparecerÃ¡n aquÃ­ para asignar psicÃ³logo.</p>
+                  <p className="text-zinc-500">Los leads cerrados aparecerÃƒÂ¡n aquÃƒÂ­ para asignar psicÃƒÂ³logo.</p>
                 </div>
               ) : pendingPatients.length === 0 && user?.role !== 'admin' ? (
                  <div className="text-center py-20 text-zinc-500">No tienes pacientes pendientes.</div>
@@ -194,7 +194,7 @@ export default function PatientsPage() {
                         </div>
                         {user?.role === 'admin' && (
                           <Button onClick={() => { setSelectedPatientId(patient.id); setSelectedPsychId(''); }} className="w-full bg-blue-600 hover:bg-blue-700 text-white" size="sm">
-                            <Stethoscope className="w-4 h-4 mr-2" /> Asignar PsicÃ³logo
+                            <Stethoscope className="w-4 h-4 mr-2" /> Asignar PsicÃƒÂ³logo
                           </Button>
                         )}
                       </CardContent>
@@ -207,7 +207,7 @@ export default function PatientsPage() {
             {/* Contenido Activos */}
             <TabsContent value="active" className="mt-6">
               {activePatients.length === 0 ? (
-                <div className="text-center py-20 text-zinc-500">No hay pacientes activos aÃºn.</div>
+                <div className="text-center py-20 text-zinc-500">No hay pacientes activos aÃƒÂºn.</div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {activePatients.map((patient) => (
@@ -224,7 +224,7 @@ export default function PatientsPage() {
                       <CardContent className="space-y-3">
                          <div className="flex items-center gap-2 text-sm text-green-400 bg-green-900/10 p-2 rounded border border-green-900/30">
                             <Stethoscope className="w-4 h-4" />
-                            <span>PsicÃ³logo Asignado</span>
+                            <span>PsicÃƒÂ³logo Asignado</span>
                          </div>
                          <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-800 text-xs space-y-1">
                             <div className="flex justify-between"><span>Valor Plan:</span><span className="text-white font-mono">${patient.sale_total?.toLocaleString() || '0'}</span></div>
@@ -242,13 +242,13 @@ export default function PatientsPage() {
         </>
       )}
 
-      {/* Modal de AsignaciÃ³n */}
+      {/* Modal de AsignaciÃƒÂ³n */}
       <Dialog open={!!selectedPatientId} onOpenChange={(open) => !open && setSelectedPatientId(null)}>
         <DialogContent className="bg-zinc-900 border-zinc-800 text-white sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-blue-500" />
-              Asignar PsicÃ³logo
+              Asignar PsicÃƒÂ³logo
             </DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -265,7 +265,7 @@ export default function PatientsPage() {
                       <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
                     ))
                   ) : (
-                    <div className="p-2 text-xs text-zinc-500">No hay psicÃ³logos registrados</div>
+                    <div className="p-2 text-xs text-zinc-500">No hay psicÃƒÂ³logos registrados</div>
                   )}
                 </SelectContent>
               </Select>

@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { 
   UserPlus, Clock, CheckCircle, Stethoscope, AlertCircle, 
-  Search, Filter, Calendar, DollarSign, Users, MoreHorizontal, Activity
+  Calendar, DollarSign, Users, MoreVertical, Activity
 } from 'lucide-react';
 import {
   Select,
@@ -68,7 +68,6 @@ export default function PatientsPage() {
       if (user?.role === 'psychologist') {
         query = query.eq('psychologist_id', user.id);
       }
-      
       const { data: pData, error: pErr } = await query;
       if (pErr) throw pErr;
       setPatients(pData || []);
@@ -113,7 +112,7 @@ export default function PatientsPage() {
     }
   };
 
-  const handleStatusChange = async (patientId: string, newStatus: Patient['status']) => {
+  const handleStatusChange = async (patientId: string, newStatus: string) => {
     try {
       const { error } = await supabase
         .from('patients')
@@ -122,57 +121,29 @@ export default function PatientsPage() {
       if (error) throw error;
       fetchData();
     } catch (err: any) {
-      alert('Error actualizando estado: ' + err.message);
+      alert('Error al actualizar estado: ' + err.message);
     }
   };
 
   const pendingPatients = patients.filter(p => p.status === 'pending_assignment');
-  const activePatients = patients.filter(p => ['active', 'inactive', 'deserter'].includes(p.status));
-
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'active': return 'bg-emerald-900/20 text-emerald-400 border-emerald-800';
-      case 'inactive': return 'bg-orange-900/20 text-orange-400 border-orange-800';
-      case 'deserter': return 'bg-red-900/20 text-red-400 border-red-800';
-      default: return 'bg-yellow-900/20 text-yellow-400 border-yellow-800';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch(status) {
-      case 'active': return 'Activo';
-      case 'inactive': return 'Inactivo';
-      case 'deserter': return 'Desertor';
-      default: return 'Pendiente';
-    }
-  };
+  const activePatients = patients.filter(p => p.status !== 'pending_assignment');
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex justify-between items-center border-b border-zinc-800 pb-6">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <UserPlus className="w-8 h-8 text-white" />
-            Gestión de Pacientes
-          </h1>
-          <p className="text-zinc-400 mt-2">
-            Administra la asignación y el estado clínico de tus pacientes.
-          </p>
+          <h1 className="text-3xl font-bold text-white">Gestión de Pacientes</h1>
+          <p className="text-zinc-400 mt-1">Administra asignaciones y seguimientos clínicos.</p>
         </div>
-        
-        {user?.role === 'admin' && (
-          <div className="flex gap-3">
-             <Badge className={`${pendingPatients.length > 0 ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-zinc-800'} text-black border-none px-4 py-2 font-bold`}>
-                <Clock className="w-4 h-4 mr-2" />
-                Pendientes: {pendingPatients.length}
-             </Badge>
-             <Badge variant="outline" className="bg-zinc-900 text-zinc-400 border-zinc-800 px-4 py-2">
-                <Activity className="w-4 h-4 mr-2" />
-                Activos/Gestión: {activePatients.length}
-             </Badge>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Badge variant="outline" className="bg-yellow-950 text-yellow-500 border-yellow-900 px-4 py-2">
+            <Clock className="w-4 h-4 mr-2" /> Pendientes: {pendingPatients.length}
+          </Badge>
+          <Badge variant="outline" className="bg-zinc-900 text-zinc-400 border-zinc-800 px-4 py-2">
+            <Users className="w-4 h-4 mr-2" /> En Seguimiento: {activePatients.length}
+          </Badge>
+        </div>
       </div>
 
       {loading ? (
@@ -185,44 +156,40 @@ export default function PatientsPage() {
           {pendingPatients.length > 0 && (
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                <Clock className="w-5 h-5 text-yellow-500" />
+                <AlertCircle className="w-5 h-5 text-yellow-500" />
                 Pendientes de Asignación
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {pendingPatients.map((patient) => (
-                  <Card key={patient.id} className="bg-zinc-900 border-zinc-800 hover:border-yellow-500/50 transition-all shadow-lg shadow-yellow-900/10">
+                  <Card key={patient.id} className="bg-zinc-900 border-zinc-800 hover:border-yellow-500/50 transition-colors border-l-4 border-l-yellow-500">
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <div>
                           <CardTitle className="text-white text-lg">{patient.full_name}</CardTitle>
                           <CardDescription className="text-zinc-400">{patient.email}</CardDescription>
                         </div>
-                        <Badge className="bg-yellow-500 text-black hover:bg-yellow-600 border-none font-medium">
-                          Nuevo
+                        <Badge className="bg-yellow-950 text-yellow-500 border-yellow-900">
+                          <Clock className="w-3 h-3 mr-1" /> Pendiente
                         </Badge>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="bg-black/30 p-3 rounded-lg border border-zinc-800 text-xs space-y-1">
+                      <div className="bg-black/30 p-3 rounded border border-zinc-800 text-xs space-y-1">
                         <div className="flex justify-between text-zinc-400">
                           <span>Valor Plan:</span>
                           <span className="text-white font-mono">${patient.sale_total?.toLocaleString() || '0'}</span>
                         </div>
                         <div className="flex justify-between text-zinc-400">
                           <span>Pago Inicial:</span>
-                          <span className="text-emerald-400 font-mono">${patient.cash_collected?.toLocaleString() || '0'}</span>
+                          <span className="text-green-400 font-mono">${patient.cash_collected?.toLocaleString() || '0'}</span>
                         </div>
                       </div>
-                      
-                      {user?.role === 'admin' && (
-                        <Button 
-                          onClick={() => { setSelectedPatientId(patient.id); setSelectedPsychId(''); }}
-                          className="w-full bg-white text-black hover:bg-zinc-200 font-medium"
-                        >
-                          <Stethoscope className="w-4 h-4 mr-2" />
-                          Asignar Psicólogo
-                        </Button>
-                      )}
+                      <Button 
+                        onClick={() => { setSelectedPatientId(patient.id); setSelectedPsychId(''); }}
+                        className="w-full bg-white text-black hover:bg-zinc-200 font-medium"
+                      >
+                        <Stethoscope className="w-4 h-4 mr-2" /> Asignar Psicólogo
+                      </Button>
                     </CardContent>
                   </Card>
                 ))}
@@ -230,33 +197,32 @@ export default function PatientsPage() {
             </div>
           )}
 
-          {/* SECCIÓN 2: PACIENTES ACTIVOS / EN GESTIÓN */}
+          {/* SECCIÓN 2: PACIENTES EN SEGUIMIENTO (ACTIVOS/INACTIVOS/DESERTORES) */}
           {activePatients.length > 0 && (
-            <div className="space-y-4 pt-8 border-t border-zinc-800">
+            <div className="space-y-4 pt-6 border-t border-zinc-800">
               <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                <Activity className="w-5 h-5 text-emerald-500" />
+                <Activity className="w-5 h-5 text-zinc-400" />
                 Pacientes en Seguimiento
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {activePatients.map((patient) => (
-                  <Card key={patient.id} className="bg-zinc-900 border-zinc-800 hover:border-zinc-600 transition-all">
+                  <Card key={patient.id} className="bg-zinc-900 border-zinc-800 hover:border-zinc-600 transition-colors">
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <div>
                           <CardTitle className="text-white text-lg">{patient.full_name}</CardTitle>
                           <CardDescription className="text-zinc-400">{patient.email}</CardDescription>
                         </div>
-                        
-                        {/* Dropdown de Estado */}
+                        {/* Dropdown de Estados */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-zinc-800">
-                              <MoreHorizontal className="h-4 w-4 text-zinc-400" />
+                              <MoreVertical className="w-4 h-4 text-zinc-400" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-white">
-                            <DropdownMenuItem onClick={() => handleStatusChange(patient.id, 'active')} className="hover:bg-zinc-800 focus:text-emerald-400">
-                              <CheckCircle className="w-4 h-4 mr-2 text-emerald-500" /> Activo
+                            <DropdownMenuItem onClick={() => handleStatusChange(patient.id, 'active')} className="hover:bg-zinc-800 focus:text-green-400">
+                              <CheckCircle className="w-4 h-4 mr-2 text-green-500" /> Activo
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleStatusChange(patient.id, 'inactive')} className="hover:bg-zinc-800 focus:text-orange-400">
                               <Clock className="w-4 h-4 mr-2 text-orange-500" /> Inactivo
@@ -267,24 +233,30 @@ export default function PatientsPage() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
+                      {/* Badge de Estado Actual */}
                       <div className="mt-2">
-                         <Badge className={`${getStatusColor(patient.status)} border font-medium`}>
-                            {getStatusLabel(patient.status)}
-                         </Badge>
+                        {patient.status === 'active' && (
+                          <Badge className="bg-green-950 text-green-500 border-green-900"><CheckCircle className="w-3 h-3 mr-1"/> Activo</Badge>
+                        )}
+                        {patient.status === 'inactive' && (
+                          <Badge className="bg-orange-950 text-orange-500 border-orange-900"><Clock className="w-3 h-3 mr-1"/> Inactivo</Badge>
+                        )}
+                        {patient.status === 'deserter' && (
+                          <Badge className="bg-red-950 text-red-500 border-red-900"><AlertCircle className="w-3 h-3 mr-1"/> Desertor</Badge>
+                        )}
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="bg-black/30 p-3 rounded-lg border border-zinc-800 text-xs space-y-1">
+                       <div className="bg-black/30 p-3 rounded border border-zinc-800 text-xs space-y-1">
                         <div className="flex justify-between text-zinc-400">
-                          <span>Psicólogo:</span>
-                          <span className="text-zinc-200 truncate max-w-[150px]">{patient.psychologist_id ? 'Asignado' : 'Sin asignar'}</span>
+                          <span>Valor Plan:</span>
+                          <span className="text-white font-mono">${patient.sale_total?.toLocaleString() || '0'}</span>
                         </div>
                       </div>
-                      {patient.status === 'active' && (
-                         <div className="pt-2">
-                            <Button variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white" size="sm">
-                                Ver Historia Clínica
-                            </Button>
+                      {patient.psychologist_id && (
+                         <div className="flex items-center gap-2 text-xs text-zinc-500 bg-zinc-950 p-2 rounded border border-zinc-800">
+                           <Stethoscope className="w-3 h-3" />
+                           <span>Psicólogo asignado</span>
                          </div>
                       )}
                     </CardContent>
@@ -295,11 +267,11 @@ export default function PatientsPage() {
           )}
 
           {patients.length === 0 && (
-             <div className="text-center py-20 bg-zinc-900/50 rounded-xl border border-dashed border-zinc-800">
-                <Users className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-zinc-300">No hay pacientes</h3>
-                <p className="text-zinc-500">Los pacientes aparecerán aquí al cerrar ventas en el pipeline.</p>
-             </div>
+            <div className="text-center py-20 bg-zinc-900/50 rounded-xl border border-dashed border-zinc-800">
+              <UserPlus className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-zinc-300">No hay pacientes</h3>
+              <p className="text-zinc-500">Los pacientes aparecerán aquí cuando un lead sea cerrado.</p>
+            </div>
           )}
         </>
       )}
@@ -313,16 +285,12 @@ export default function PatientsPage() {
               Asignar Psicólogo
             </DialogTitle>
           </DialogHeader>
-          
           <div className="py-4 space-y-4">
-            <p className="text-sm text-zinc-400">
-              Selecciona un profesional para este paciente.
-            </p>
-            
+            <p className="text-sm text-zinc-400">Selecciona un profesional para este paciente.</p>
             <div className="space-y-2">
               <Label htmlFor="psych-select" className="text-zinc-300">Profesional</Label>
               <Select value={selectedPsychId} onValueChange={setSelectedPsychId}>
-                <SelectTrigger id="psych-select" className="bg-zinc-900 border-zinc-800 text-white focus:ring-zinc-700">
+                <SelectTrigger id="psych-select" className="bg-zinc-900 border-zinc-800 text-white">
                   <SelectValue placeholder="Seleccionar..." />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
@@ -339,16 +307,9 @@ export default function PatientsPage() {
               </Select>
             </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedPatientId(null)} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleAssignPsychologist} 
-              disabled={!selectedPsychId || isAssigning}
-              className="bg-white text-black hover:bg-zinc-200 font-medium"
-            >
+            <Button variant="outline" onClick={() => setSelectedPatientId(null)} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">Cancelar</Button>
+            <Button onClick={handleAssignPsychologist} disabled={!selectedPsychId || isAssigning} className="bg-white text-black hover:bg-zinc-200">
               {isAssigning ? 'Asignando...' : 'Confirmar Asignación'}
             </Button>
           </DialogFooter>

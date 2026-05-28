@@ -5,12 +5,10 @@ import Dashboard from './pages/admin/Dashboard';
 import LeadsPage from './pages/leads/Leads';
 import PatientsPage from './pages/patients/PatientsPage';
 import ClinicalRecord from './pages/clinical/ClinicalRecord';
-import ClinicalRecord from './pages/clinical/ClinicalRecord';
 import CommercialDashboard from './pages/commercial/Dashboard';
 import PsychologistDashboard from './pages/psychologist/Dashboard';
-import ClinicalRecord from './pages/clinical/ClinicalRecord';
 
-// Componente de ProtecciÃƒÆ’Ã‚Â³n de Rutas
+// Componente de ProtecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de Rutas
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, loading, role } = useAuth();
 
@@ -34,7 +32,7 @@ function AppContent() {
     { path: '/leads', label: 'Leads', roles: ['admin', 'closer'] },
     { path: '/patients', label: 'Pacientes', roles: ['admin', 'psychologist'] },
     { path: '/commercial', label: 'Comercial', roles: ['admin', 'closer'] },
-    { path: '/psychologist', label: 'PsicÃƒÆ’Ã‚Â³logos', roles: ['psychologist'] },
+    { path: '/psychologist', label: 'PsicÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³logos', roles: ['psychologist'] },
   ].filter(item => item.roles.includes(role || ''));
 
   return (
@@ -62,7 +60,7 @@ function AppContent() {
         </nav>
         <div className="p-4 border-t border-zinc-800">
           <button onClick={signOut} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300">
-            Cerrar SesiÃƒÆ’Ã‚Â³n
+            Cerrar SesiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n
           </button>
         </div>
       </aside>

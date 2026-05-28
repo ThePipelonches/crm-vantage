@@ -1,29 +1,28 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import './App'
-import './index.css'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
 
-// 1. Captura de errores GLOBALES antes de que React inicie
-window.addEventListener('error', (e) => {
-  console.error("âŒ ERROR GLOBAL CAPTURADO EN MAIN:", e.error);
-  document.body.innerHTML = `
-    <div style="color: red; padding: 20px; font-family: sans-serif;">
-      <h1>Error CrÃ­tico de Inicio</h1>
-      <p>Revisa la consola (F12) para mÃ¡s detalles.</p>
-      <pre style="background: #eee; padding: 10px;">${e.message}</pre>
-    </div>
-  `;
-});
+// Manejo de errores global para evitar pantalla negra silenciosa
+window.onerror = function (msg, url, lineNo, columnNo, error) {
+  console.error('❌ ERROR GLOBAL CAPTURADO:', msg, url, lineNo, columnNo, error);
+  const container = document.getElementById('root');
+  if (container) {
+    container.innerHTML = `
+      <div style="color: red; padding: 20px; font-family: sans-serif;">
+        <h2>⚠️ Error Crítico Detectado</h2>
+        <p><strong>Mensaje:</strong> ${msg}</p>
+        <p><strong>Ubicación:</strong> Línea ${lineNo}</p>
+        <p>Revisa la consola (F12) para más detalles.</p>
+        <button onclick="location.reload()" style="padding: 10px 20px; cursor: pointer;">Recargar Página</button>
+      </div>
+    `;
+  }
+  return false;
+};
 
-// 2. Inicio seguro
-const rootElement = document.getElementById('root');
-
-if (!rootElement) {
-  throw new Error("No se encontrÃ³ el elemento #root en el HTML. Verifica index.html");
-}
-
-ReactDOM.createRoot(rootElement).render(
+ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
-  </React.StrictMode>,
-)
+  </React.StrictMode>
+);

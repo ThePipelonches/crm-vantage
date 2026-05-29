@@ -18,7 +18,7 @@ export default function ClinicalRecord() {
   const [rolData, setRolData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Estados para pestañas internas
+  // Estados para pestaÃ±as internas
   const [activeTab, setActiveTab] = useState<'data' | 'rol' | 'eval'>('data');
   
   // Estados para formulario ROL
@@ -46,7 +46,7 @@ export default function ClinicalRecord() {
       if (pErr) throw pErr;
       setPatient(pData);
 
-      // 2. Cargar Histórico ROL
+      // 2. Cargar HistÃ³rico ROL
       const { data: rData, error: rErr } = await supabase
         .from('patient_rol_logs')
         .select('*')
@@ -55,7 +55,7 @@ export default function ClinicalRecord() {
 
       if (!rErr && rData) {
         setRolData(rData);
-        // Auto-sugerir siguiente número de sesión
+        // Auto-sugerir siguiente nÃºmero de sesiÃ³n
         const lastSession = rData.length > 0 ? rData[rData.length - 1].session_number : 0;
         setSessionNum(lastSession + 1);
       }
@@ -88,18 +88,18 @@ export default function ClinicalRecord() {
 
       if (error) throw error;
       
-      alert("✅ ROL guardado correctamente");
+      alert("âœ… ROL guardado correctamente");
       setComments('');
       setActionPlan('');
-      fetchData(); // Recargar gráfica
+      fetchData(); // Recargar grÃ¡fica
     } catch (err: any) {
-      alert("❌ Error: " + err.message);
+      alert("âŒ Error: " + err.message);
     } finally {
       setSavingRol(false);
     }
   };
 
-  if (loading) return <div className="p-6 text-white">Cargando historia clínica...</div>;
+  if (loading) return <div className="p-6 text-white">Cargando historia clÃ­nica...</div>;
   if (!patient) return <div className="p-6 text-red-400">Paciente no encontrado.</div>;
 
   const getStatusColor = (status: string) => {
@@ -124,7 +124,7 @@ export default function ClinicalRecord() {
         <Button variant="ghost" onClick={() => navigate('/patients')} className="text-zinc-400 hover:text-white">
           <ArrowLeft className="w-5 h-5 mr-2" /> Volver
         </Button>
-        <h1 className="text-2xl font-bold text-white">Historia Clínica</h1>
+        <h1 className="text-2xl font-bold text-white">Historia ClÃ­nica</h1>
       </div>
 
       {/* Info Paciente */}
@@ -147,14 +147,14 @@ export default function ClinicalRecord() {
         </CardHeader>
       </Card>
 
-      {/* Tabs de Navegación */}
+      {/* Tabs de NavegaciÃ³n */}
       <div className="flex gap-2 border-b border-zinc-800">
-        <button onClick={() => setActiveTab('data')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'data' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>Datos Clínicos</button>
+        <button onClick={() => setActiveTab('data')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'data' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>Datos ClÃ­nicos</button>
         <button onClick={() => setActiveTab('rol')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'rol' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>ROL Semanal</button>
-        <button onClick={() => setActiveTab('eval')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'eval' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>Evaluaciones Psicométricas</button>
+        <button onClick={() => setActiveTab('eval')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'eval' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>Evaluaciones PsicomÃ©tricas</button>
       </div>
 
-      {/* Contenido Dinámico */}
+      {/* Contenido DinÃ¡mico */}
       {activeTab === 'data' && (
         <Card className="bg-zinc-900 border-zinc-800 p-6">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"><FileText className="w-5 h-5"/> Notas Generales</h3>
@@ -166,11 +166,11 @@ export default function ClinicalRecord() {
         <div className="space-y-6">
           {/* Formulario ROL */}
           <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader><CardTitle className="text-white">Registrar ROL - Sesión #{sessionNum}</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-white">Registrar ROL - SesiÃ³n #{sessionNum}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-zinc-400 mb-1">Número de Sesión</label>
+                  <label className="block text-sm text-zinc-400 mb-1">NÃºmero de SesiÃ³n</label>
                   <input type="number" value={sessionNum} onChange={(e) => setSessionNum(parseInt(e.target.value))} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" />
                 </div>
                 <div>
@@ -186,11 +186,11 @@ export default function ClinicalRecord() {
               {riskLevel !== 'low' && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                   <div>
-                    <label className="block text-sm text-zinc-400 mb-1">Justificación del Riesgo</label>
-                    <textarea value={comments} onChange={(e) => setComments(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white h-20" placeholder="¿Por qué aumentó el riesgo?" />
+                    <label className="block text-sm text-zinc-400 mb-1">JustificaciÃ³n del Riesgo</label>
+                    <textarea value={comments} onChange={(e) => setComments(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white h-20" placeholder="Â¿Por quÃ© aumentÃ³ el riesgo?" />
                   </div>
                   <div>
-                    <label className="block text-sm text-zinc-400 mb-1">Plan de Acción</label>
+                    <label className="block text-sm text-zinc-400 mb-1">Plan de AcciÃ³n</label>
                     <textarea value={actionPlan} onChange={(e) => setActionPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white h-20" placeholder="Acciones concretas para esta semana" />
                   </div>
                 </div>
@@ -202,15 +202,15 @@ export default function ClinicalRecord() {
             </CardContent>
           </Card>
 
-          {/* Gráfica ROL */}
+          {/* GrÃ¡fica ROL */}
           <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader><CardTitle className="text-white flex items-center gap-2"><TrendingUp className="w-5 h-5"/> Evolución del Riesgo por Sesión</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-white flex items-center gap-2"><TrendingUp className="w-5 h-5"/> EvoluciÃ³n del Riesgo por SesiÃ³n</CardTitle></CardHeader>
             <CardContent className="h-64">
               {rolData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={rolData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                    <XAxis dataKey="session_number" stroke="#888" label={{ value: 'Sesión', position: 'insideBottom', offset: -5 }} />
+                    <XAxis dataKey="session_number" stroke="#888" label={{ value: 'SesiÃ³n', position: 'insideBottom', offset: -5 }} />
                     <YAxis stroke="#888" domain={[0, 4]} ticks={[1, 2, 3]} label={{ value: 'Riesgo', angle: -90, position: 'insideLeft' }} />
                     <Tooltip 
                       contentStyle={{ backgroundColor: '#18181b', borderColor: '#3f3f46', color: '#fff' }}
@@ -222,16 +222,16 @@ export default function ClinicalRecord() {
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-zinc-500">No hay registros aún</div>
+                <div className="h-full flex items-center justify-center text-zinc-500">No hay registros aÃºn</div>
               )}
             </CardContent>
           </Card>
           
-          {/* Tabla Histórica */}
+          {/* Tabla HistÃ³rica */}
           <div className="bg-zinc-900 border border-zinc-800 rounded overflow-hidden">
              <table className="w-full text-sm text-left">
                <thead className="bg-zinc-950 text-zinc-400 uppercase text-xs">
-                 <tr><th className="px-4 py-3">Sesión</th><th className="px-4 py-3">Riesgo</th><th className="px-4 py-3">Comentarios</th><th className="px-4 py-3">Plan</th></tr>
+                 <tr><th className="px-4 py-3">SesiÃ³n</th><th className="px-4 py-3">Riesgo</th><th className="px-4 py-3">Comentarios</th><th className="px-4 py-3">Plan</th></tr>
                </thead>
                <tbody className="divide-y divide-zinc-800 text-zinc-300">
                  {rolData.map((row: any) => (

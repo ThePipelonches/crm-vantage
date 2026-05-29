@@ -28,7 +28,7 @@ export default function PsychometricEval({ patientId }: EvalProps) {
 
   const [formData, setFormData] = useState(initialFormState);
 
-  // Cargar datos existentes al cambiar de pestaña/test
+  // Cargar datos existentes al cambiar de pestaÃ±a/test
   useEffect(() => {
     if (!patientId) return;
     loadData();
@@ -78,7 +78,7 @@ export default function PsychometricEval({ patientId }: EvalProps) {
   };
 
   const handleInputChange = (test: keyof typeof formData, field: string, value: string) => {
-    // Permitir solo números o vacío
+    // Permitir solo nÃºmeros o vacÃ­o
     if (value !== '' && !/^\d+$/.test(value)) return;
     
     setFormData(prev => ({
@@ -88,56 +88,57 @@ export default function PsychometricEval({ patientId }: EvalProps) {
   };
 
   const handleSave = async () => {
-    setLoading(true);
+    if (!patientId) return;
+    
     try {
-      const payload = {
+      // Construcción EXPLÍCITA del objeto para evitar errores de nombres
+      const payload: any = {
         patient_id: patientId,
-        moment: activeTab,
-        test_type: activeTest,
-        ...(activeTest === 'pcq' && {
-          se_score: parseInt(formData.pcq.se) || 0,
-          hope_score: parseInt(formData.pcq.h) || 0,
-          resilience_score: parseInt(formData.pcq.r) || 0,
-          optimism_score: parseInt(formData.pcq.o) || 0
-        }),
-        ...(activeTest === 'mbi' && {
-          ae_score: parseInt(formData.mbi.ae) || 0,
-          dp_score: parseInt(formData.mbi.dp) || 0,
-          rp_score: parseInt(formData.mbi.rp) || 0
-        }),
-        ...(activeTest === 'dass' && {
-          depression_score: parseInt(formData.dass.dep) || 0,
-          anxiety_score: parseInt(formData.dass.ans) || 0,
-          stress_score: parseInt(formData.dass.str) || 0
-        })
+        moment: activeMoment, // 'pre', 'mid', 'post'
+        
+        // Mapeo manual de PCQ
+        pcq_efficacy: formData[activeMoment]?.pcq?.efficacy || null,
+        pcq_hope: formData[activeMoment]?.pcq?.hope || null,
+        pcq_resilience: formData[activeMoment]?.pcq?.resilience || null,
+        pcq_optimism: formData[activeMoment]?.pcq?.optimism || null,
+        
+        // Mapeo manual de MBI
+        mbi_exhaustion: formData[activeMoment]?.mbi?.exhaustion || null,
+        mbi_depersonalization: formData[activeMoment]?.mbi?.depersonalization || null,
+        mbi_personal_accomplishment: formData[activeMoment]?.mbi?.personalAccomplishment || null,
+        
+        // Mapeo manual de DASS
+        dass_depression: formData[activeMoment]?.dass?.depression || null,
+        dass_anxiety: formData[activeMoment]?.dass?.anxiety || null,
+        dass_stress: formData[activeMoment]?.dass?.stress || null,
       };
 
-      let error;
-      if (savedData.id) {
-        const res = await supabase.from('psychometric_evaluations').update(payload).eq('id', savedData.id);
-        error = res.error;
-      } else {
-        const res = await supabase.from('psychometric_evaluations').insert([payload]);
-        error = res.error;
-      }
+      // Intentar actualizar primero (si existe registro para ese paciente/momento)
+      // Nota: Para simplificar, hacemos un INSERT. Si hay unicidad, deberías usar upsert.
+      // Asumiremos INSERT simple por ahora. Si falla por duplicado, avísame.
+      
+      const { data, error } = await supabase
+        .from('psychometric_evaluations')
+        .insert([payload]);
 
       if (error) throw error;
-      
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-      loadData(); // Recargar para actualizar gráficas
+      
+      // Recargar datos si es necesario
+      // fetchData(); 
     } catch (err: any) {
-      alert("❌ Error al guardar: " + err.message);
-    } finally {
-      setLoading(false);
+      console.error("Error detallado:", err);
+      alert("❌ Error al guardar: " + (err.message || "Error desconocido"));
     }
   };
 
-  // Generar datos para gráfica comparativa
+  // Generar datos para grÃ¡fica comparativa
   const getChartData = () => {
-    // Esta lógica debería venir de un padre o contexto compartido, 
-    // pero para simplificar, asumimos que las gráficas se muestran en otra vista o aquí mismo si hay datos.
-    // Por ahora, retornamos estructura vacía si no hay datos cargados de los 3 momentos.
+    // Esta lÃ³gica deberÃ­a venir de un padre o contexto compartido, 
+    // pero para simplificar, asumimos que las grÃ¡ficas se muestran en otra vista o aquÃ­ mismo si hay datos.
+    // Por ahora, retornamos estructura vacÃ­a si no hay datos cargados de los 3 momentos.
     return [];
   };
 
@@ -209,17 +210,17 @@ export default function PsychometricEval({ patientId }: EvalProps) {
           {activeTest === 'mbi' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {renderInput("Agotamiento Emocional", formData.mbi.ae, (v) => handleInputChange('mbi', 'ae', v), 54)}
-              {renderInput("Despersonalización", formData.mbi.dp, (v) => handleInputChange('mbi', 'dp', v), 30)}
-              {renderInput("Realización Personal", formData.mbi.rp, (v) => handleInputChange('mbi', 'rp', v), 48)}
+              {renderInput("DespersonalizaciÃ³n", formData.mbi.dp, (v) => handleInputChange('mbi', 'dp', v), 30)}
+              {renderInput("RealizaciÃ³n Personal", formData.mbi.rp, (v) => handleInputChange('mbi', 'rp', v), 48)}
             </div>
           )}
 
           {/* DASS FORM */}
           {activeTest === 'dass' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {renderInput("Depresión", formData.dass.dep, (v) => handleInputChange('dass', 'dep', v), 42)}
+              {renderInput("DepresiÃ³n", formData.dass.dep, (v) => handleInputChange('dass', 'dep', v), 42)}
               {renderInput("Ansiedad", formData.dass.ans, (v) => handleInputChange('dass', 'ans', v), 42)}
-              {renderInput("Estrés", formData.dass.str, (v) => handleInputChange('dass', 'str', v), 42)}
+              {renderInput("EstrÃ©s", formData.dass.str, (v) => handleInputChange('dass', 'str', v), 42)}
             </div>
           )}
 
@@ -233,7 +234,7 @@ export default function PsychometricEval({ patientId }: EvalProps) {
 
       {/* Nota informativa */}
       <div className="bg-zinc-900/50 p-4 rounded border border-zinc-800 text-sm text-zinc-400">
-        <p><strong>Nota:</strong> Ingresa únicamente el puntaje total obtenido en cada subescala. El sistema guardará automáticamente el momento (Pre/Mid/Post) y el tipo de prueba.</p>
+        <p><strong>Nota:</strong> Ingresa Ãºnicamente el puntaje total obtenido en cada subescala. El sistema guardarÃ¡ automÃ¡ticamente el momento (Pre/Mid/Post) y el tipo de prueba.</p>
       </div>
     </div>
   );

@@ -4,32 +4,32 @@ import { supabase } from '../../lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { CheckCircle } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-// Definición explícita de Props
 interface PsychometricEvalProps {
   patientId?: string;
 }
 
 export default function PsychometricEval({ patientId: propPatientId }: PsychometricEvalProps) {
-  // Obtener ID de los props o de la URL (fallback)
   const { patientId: urlPatientId } = useParams<{ patientId: string }>();
   const patientId = propPatientId || urlPatientId;
 
   const [activeMoment, setActiveMoment] = useState<'pre' | 'mid' | 'post'>('pre');
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [chartData, setChartData] = useState<any[]>([]);
   
-  // Estado único para todos los puntajes
   const [scores, setScores] = useState({
     pcq_efficacy: '', pcq_hope: '', pcq_resilience: '', pcq_optimism: '',
     mbi_exhaustion: '', mbi_depersonalization: '', mbi_personal_accomplishment: '',
     dass_depression: '', dass_anxiety: '', dass_stress: ''
   });
 
-  // Cargar datos existentes al cambiar de pestaña o paciente
+  // Cargar datos y actualizar gráfica
   useEffect(() => {
-    if (!patientId || !activeMoment) return;
+    if (!patientId) return;
     loadScores();
+    loadChartData();
   }, [activeMoment, patientId]);
 
   const loadScores = async () => {
@@ -56,26 +56,39 @@ export default function PsychometricEval({ patientId: propPatientId }: Psychomet
           dass_stress: data.dass_stress?.toString() || ''
         });
       } else {
-        // Limpiar si no hay datos
         setScores({
           pcq_efficacy: '', pcq_hope: '', pcq_resilience: '', pcq_optimism: '',
           mbi_exhaustion: '', mbi_depersonalization: '', mbi_personal_accomplishment: '',
           dass_depression: '', dass_anxiety: '', dass_stress: ''
         });
       }
-    } catch (err) {
-      console.error("Error cargando:", err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error("Error cargando:", err); } 
+    finally { setLoading(false); }
+  };
+
+  const loadChartData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('psychometric_evaluations')
+        .select('moment, pcq_efficacy, pcq_hope, pcq_resilience, pcq_optimism')
+        .eq('patient_id', patientId)
+        .order('moment', { ascending: true }); // Asume orden pre, mid, post
+      
+      if (data) {
+        const formatted = data.map(d => ({
+          name: d.moment === 'pre' ? 'Inicio' : d.moment === 'mid' ? 'Mitad' : 'Final',
+          'Autoeficacia': d.pcq_efficacy,
+          'Esperanza': d.pcq_hope,
+          'Resiliencia': d.pcq_resilience,
+          'Optimismo': d.pcq_optimism
+        }));
+        setChartData(formatted);
+      }
+    } catch (err) { console.error("Error gráfica:", err); }
   };
 
   const handleSave = async () => {
-    if (!patientId) {
-      alert("❌ Error: No se encontró el ID del paciente.");
-      return;
-    }
-
+    if (!patientId) { alert("❌ Error: No hay ID de paciente"); return; }
     setLoading(true);
     try {
       const payload = {
@@ -93,24 +106,29 @@ export default function PsychometricEval({ patientId: propPatientId }: Psychomet
         dass_stress: parseFloat(scores.dass_stress) || null
       };
 
-      // Intentar actualizar primero
-      const { error: updateError } = await supabase
+      // ESTRATEGIA DE GUARDADO ROBUSTA:
+      // 1. Intentar Insertar directamente (si falla por duplicado, actualizamos)
+      const { data: insertData, error: insertError } = await supabase
         .from('psychometric_evaluations')
-        .update(payload)
-        .eq('patient_id', patientId)
-        .eq('moment', activeMoment);
+        .insert([payload])
+        .select();
 
-      // Si no se actualizó nada (no existía), insertar
-      if (updateError || (updateError === null && false)) { 
-         // Nota: Supabase no lanza error si no encuentra rows para update, pero retorna count 0.
-         // Para simplificar, intentamos insertar directamente si falla update o usamos upsert si estuviera configurado.
-         // Aquí forzamos inserción si es nuevo.
-         const { error: insertError } = await supabase.from('psychometric_evaluations').insert([payload]);
-         if (insertError) throw insertError;
+      if (insertError && insertError.code === '23505') { // Error de clave única duplicada
+        // 2. Si ya existe, Actualizar
+        const { error: updateError } = await supabase
+          .from('psychometric_evaluations')
+          .update(payload)
+          .eq('patient_id', patientId)
+          .eq('moment', activeMoment);
+        
+        if (updateError) throw updateError;
+      } else if (insertError) {
+        throw insertError;
       }
 
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+      loadChartData(); // Recargar gráfica
     } catch (err: any) {
       alert("❌ Error al guardar: " + err.message);
     } finally {
@@ -119,18 +137,16 @@ export default function PsychometricEval({ patientId: propPatientId }: Psychomet
   };
 
   const handleInputChange = (field: keyof typeof scores, value: string) => {
-    // Solo permitir números y punto decimal
     if (value && !/^\d*\.?\d*$/.test(value)) return;
     setScores(prev => ({ ...prev, [field]: value }));
   };
 
-  // Renderizado condicional de pruebas según el momento
   const showMBI = activeMoment !== 'mid';
   const showDASS = activeMoment !== 'mid';
 
   return (
     <div className="space-y-6 animate-in fade-in">
-      {/* Tabs Superiores */}
+      {/* Tabs */}
       <div className="flex gap-2 border-b border-zinc-800 pb-2">
         <Button variant={activeMoment === 'pre' ? 'default' : 'ghost'} onClick={() => setActiveMoment('pre')} className={activeMoment === 'pre' ? 'bg-white text-black' : 'text-zinc-400'}>Inicio (Pre)</Button>
         <Button variant={activeMoment === 'mid' ? 'default' : 'ghost'} onClick={() => setActiveMoment('mid')} className={activeMoment === 'mid' ? 'bg-white text-black' : 'text-zinc-400'}>Mitad (Intermedio)</Button>
@@ -139,49 +155,57 @@ export default function PsychometricEval({ patientId: propPatientId }: Psychomet
 
       {saved && (
         <div className="bg-green-900/20 border border-green-800 text-green-400 p-3 rounded flex items-center gap-2">
-          <CheckCircle className="w-4 h-4" /> Guardado correctamente en {activeMoment.toUpperCase()}
+          <CheckCircle className="w-4 h-4" /> Guardado correctamente
         </div>
       )}
 
-      {/* PCQ-24 (Siempre visible) */}
+      {/* GRÁFICA COMPARATIVA (RESTAURADA) */}
+      <Card className="bg-zinc-900 border-zinc-800 h-80">
+        <CardHeader><CardTitle className="text-white text-sm">Evolución PCQ-24</CardTitle></CardHeader>
+        <CardContent className="h-full">
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                <XAxis dataKey="name" stroke="#999" />
+                <YAxis stroke="#999" domain={[0, 7]} />
+                <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }} />
+                <Legend />
+                <Bar dataKey="Autoeficacia" fill="#3b82f6" />
+                <Bar dataKey="Esperanza" fill="#10b981" />
+                <Bar dataKey="Resiliencia" fill="#f59e0b" />
+                <Bar dataKey="Optimismo" fill="#8b5cf6" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <p className="text-zinc-500 text-center mt-10">Sin datos para graficar aún.</p>}
+        </CardContent>
+      </Card>
+
+      {/* Formulario PCQ */}
       <Card className="bg-zinc-900 border-zinc-800">
-        <CardHeader><CardTitle className="text-white text-lg">🧠 PCQ-24 (Capital Psicológico)</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-white text-lg">🧠 PCQ-24</CardTitle></CardHeader>
         <CardContent>
-          <p className="text-xs text-zinc-500 mb-4">Ingresa el puntaje promedio final de cada subescala (1-7).</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {['pcq_efficacy', 'pcq_hope', 'pcq_resilience', 'pcq_optimism'].map((field) => (
               <div key={field}>
                 <label className="text-xs text-zinc-400 capitalize block mb-1">{field.replace('pcq_', '')}</label>
-                <input 
-                  type="text" 
-                  value={scores[field as keyof typeof scores]} 
-                  onChange={(e) => handleInputChange(field as keyof typeof scores, e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="0.0"
-                />
+                <input type="text" value={scores[field as keyof typeof scores]} onChange={(e) => handleInputChange(field as keyof typeof scores, e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center" placeholder="0.0" />
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* MBI (Solo Pre y Post) */}
+      {/* Formulario MBI */}
       {showMBI && (
         <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader><CardTitle className="text-white text-lg">🔥 MBI (Burnout)</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-white text-lg">🔥 MBI</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-xs text-zinc-500 mb-4">Ingresa la suma total de cada subescala.</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {['mbi_exhaustion', 'mbi_depersonalization', 'mbi_personal_accomplishment'].map((field) => (
                 <div key={field}>
                   <label className="text-xs text-zinc-400 capitalize block mb-1">{field.replace('mbi_', '')}</label>
-                  <input 
-                    type="text" 
-                    value={scores[field as keyof typeof scores]} 
-                    onChange={(e) => handleInputChange(field as keyof typeof scores, e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="0"
-                  />
+                  <input type="text" value={scores[field as keyof typeof scores]} onChange={(e) => handleInputChange(field as keyof typeof scores, e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center" placeholder="0" />
                 </div>
               ))}
             </div>
@@ -189,23 +213,16 @@ export default function PsychometricEval({ patientId: propPatientId }: Psychomet
         </Card>
       )}
 
-      {/* DASS-21 (Solo Pre y Post) */}
+      {/* Formulario DASS */}
       {showDASS && (
         <Card className="bg-zinc-900 border-zinc-800">
           <CardHeader><CardTitle className="text-white text-lg">⚠️ DASS-21</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-xs text-zinc-500 mb-4">Ingresa el puntaje final (suma x2) de cada subescala.</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {['dass_depression', 'dass_anxiety', 'dass_stress'].map((field) => (
                 <div key={field}>
                   <label className="text-xs text-zinc-400 capitalize block mb-1">{field.replace('dass_', '')}</label>
-                  <input 
-                    type="text" 
-                    value={scores[field as keyof typeof scores]} 
-                    onChange={(e) => handleInputChange(field as keyof typeof scores, e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="0"
-                  />
+                  <input type="text" value={scores[field as keyof typeof scores]} onChange={(e) => handleInputChange(field as keyof typeof scores, e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center" placeholder="0" />
                 </div>
               ))}
             </div>

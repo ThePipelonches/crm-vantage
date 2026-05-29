@@ -14,10 +14,10 @@ interface PsychometricEvalProps {
   patientId: string;
 }
 
-// Configuración de escalas y subescalas
+// ConfiguraciÃ³n de escalas y subescalas
 const TEST_CONFIG: any = {
   pcq: {
-    label: 'PCQ-24 (Capital Psicológico)',
+    label: 'PCQ-24 (Capital PsicolÃ³gico)',
     icon: Brain,
     scales: {
       self_efficacy: 'Autoeficacia',
@@ -32,18 +32,18 @@ const TEST_CONFIG: any = {
     icon: Activity,
     scales: {
       emotional_exhaustion: 'Agotamiento Emocional',
-      depersonalization: 'Despersonalización',
-      personal_accomplishment: 'Realización Personal'
+      depersonalization: 'DespersonalizaciÃ³n',
+      personal_accomplishment: 'RealizaciÃ³n Personal'
     },
-    maxScore: 6 // Escala 0-6 (suma varía, pero referencia visual útil)
+    maxScore: 6 // Escala 0-6 (suma varÃ­a, pero referencia visual Ãºtil)
   },
   dass: {
     label: 'DASS-21',
     icon: AlertTriangle,
     scales: {
-      depression: 'Depresión',
+      depression: 'DepresiÃ³n',
       anxiety: 'Ansiedad',
-      stress: 'Estrés'
+      stress: 'EstrÃ©s'
     },
     maxScore: 42 // Escala 0-3 * 2 * 7 items aprox (referencia visual)
   }
@@ -150,15 +150,15 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
       }
 
       if (error) throw error;
-      alert(`✅ Resultados ${moment === 'pre' ? 'Pre' : moment === 'mid' ? 'Intermedios' : 'Post'} guardados correctamente.`);
+      alert(`âœ… Resultados ${moment === 'pre' ? 'Pre' : moment === 'mid' ? 'Intermedios' : 'Post'} guardados correctamente.`);
     } catch (err: any) {
-      alert(`❌ Error al guardar: ${err.message}`);
+      alert(`âŒ Error al guardar: ${err.message}`);
     } finally {
       setSaving(false);
     }
   };
 
-  // Preparar datos para la gráfica
+  // Preparar datos para la grÃ¡fica
   const chartData = useMemo(() => {
     if (!selectedScale) return [];
     
@@ -166,7 +166,7 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
       name: TEST_CONFIG[selectedTest].scales[selectedScale] || selectedScale
     };
 
-    // Obtener valores para cada momento, solo si el test es válido para ese momento
+    // Obtener valores para cada momento, solo si el test es vÃ¡lido para ese momento
     // PCQ: Pre, Mid, Post | MBI/DASS: Pre, Post
     if (scores.pre[selectedScale]) dataPoint.Pre = scores.pre[selectedScale];
     
@@ -188,12 +188,12 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
       <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
-            <Activity className="w-5 h-5 text-blue-500" /> Filtros de Comparación
+            <Activity className="w-5 h-5 text-blue-500" /> Filtros de ComparaciÃ³n
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label className="text-zinc-400">Prueba Psicológica</Label>
+            <Label className="text-zinc-400">Prueba PsicolÃ³gica</Label>
             <div className="flex gap-2">
               {Object.entries(TEST_CONFIG).map(([key, config]: any) => {
                 const Icon = config.icon;
@@ -212,7 +212,7 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-zinc-400">Subescala / Dimensión</Label>
+            <Label className="text-zinc-400">Subescala / DimensiÃ³n</Label>
             <select
               value={selectedScale}
               onChange={(e) => setSelectedScale(e.target.value)}
@@ -226,10 +226,10 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
         </CardContent>
       </Card>
 
-      {/* Gráfica Comparativa */}
+      {/* GrÃ¡fica Comparativa */}
       <Card className="bg-zinc-900 border-zinc-800 h-[400px]">
         <CardHeader>
-          <CardTitle className="text-white text-lg">Evolución: {currentConfig.scales[selectedScale]}</CardTitle>
+          <CardTitle className="text-white text-lg">EvoluciÃ³n: {currentConfig.scales[selectedScale]}</CardTitle>
         </CardHeader>
         <CardContent className="h-[300px] w-full">
           {chartData.length > 0 && chartData[0].Pre !== undefined || chartData[0].Post !== undefined ? (
@@ -254,10 +254,10 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
             </ResponsiveContainer>
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-zinc-500">
-              <p>Suficientes datos para mostrar la gráfica.</p>
+              <p>Suficientes datos para mostrar la grÃ¡fica.</p>
               <p className="text-sm">Ingresa resultados en los formularios de abajo.</p>
               {selectedTest !== 'pcq' && (
-                <p className="text-xs mt-2 text-orange-400">Nota: La evaluación "Mitad" solo aplica para PCQ-24.</p>
+                <p className="text-xs mt-2 text-orange-400">Nota: La evaluaciÃ³n "Mitad" solo aplica para PCQ-24.</p>
               )}
             </div>
           )}
@@ -323,7 +323,7 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
                 ))
               ) : (
                 <div className="text-center py-8 text-zinc-500 text-sm">
-                  No se evalúa en la mitad del tratamiento.
+                  No se evalÃºa en la mitad del tratamiento.
                 </div>
               )}
             </CardContent>

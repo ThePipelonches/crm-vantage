@@ -1,288 +1,243 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Brain, Activity, AlertTriangle, CheckCircle, Save } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 
-// Definición estricta de Props para evitar el error TS2322
-interface PsychometricEvalProps {
+interface EvalProps {
   patientId: string;
 }
 
-export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
-  const [activeMoment, setActiveMoment] = useState<'pre' | 'mid' | 'post'>('pre');
-  const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState(false);
+export default function PsychometricEval({ patientId }: EvalProps) {
+  const [activeTab, setActiveTab] = useState<'pre' | 'mid' | 'post'>('pre');
+  const [saving, setSaving] = useState(false);
   
-  // Estado local para los formularios (clave: nombre_subescala, valor: puntaje)
-  const [formData, setFormData] = useState<Record<string, number>>({});
-  
-  // Estado para datos históricos (para gráficas)
-  const [historyData, setHistoryData] = useState<any[]>([]);
+  // Estructura de datos: { pcq: { se: 0, h: 0, r: 0, o: 0 }, mbi: { ae: 0, dp: 0, rp: 0 }, dass: { d: 0, a: 0, s: 0 } }
+  const [formData, setFormData] = useState<any>({
+    pcq: { se: '', h: '', r: '', o: '' },
+    mbi: { ae: '', dp: '', rp: '' },
+    dass: { d: '', a: '', s: '' }
+  });
 
-  // Cargar datos existentes al cambiar de momento o paciente
+  const [savedData, setSavedData] = useState<any>(null);
+
   useEffect(() => {
-    if (!patientId) return;
-    loadData();
-  }, [patientId, activeMoment]);
+    fetchSavedData();
+  }, [patientId]);
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      // 1. Cargar datos del momento actual
-      const { data: currentData, error } = await supabase
-        .from('psychometric_evaluations')
-        .select('*')
-        .eq('patient_id', patientId)
-        .eq('moment', activeMoment)
-        .single();
-
-      if (currentData) {
-        // Mapear columnas de la BD al estado del formulario
-        const formState: Record<string, number> = {};
-        Object.keys(currentData).forEach(key => {
-          if (key !== 'id' && key !== 'patient_id' && key !== 'moment' && key !== 'created_at') {
-            formState[key] = currentData[key];
-          }
-        });
-        setFormData(formState);
-      } else {
-        setFormData({}); // Limpiar si no hay datos
-      }
-
-      // 2. Cargar histórico para gráficas (siempre cargamos todo para comparar)
-      const { data: allData } = await supabase
-        .from('psychometric_evaluations')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('moment', { ascending: true });
-
-      if (allData) processChartData(allData);
-
-    } catch (err) {
-      console.error("Error cargando evaluaciones:", err);
-    } finally {
-      setLoading(false);
+  const fetchSavedData = async () => {
+    const { data, error } = await supabase
+      .from('psychometric_evaluations')
+      .select('*')
+      .eq('patient_id', patientId)
+      .order('moment', { ascending: true });
+    
+    if (!error && data) {
+      setSavedData(data);
     }
   };
 
-  const processChartData = (data: any[]) => {
-    // Transformar datos de BD a formato Recharts
-    // Estructura esperada: [{ name: 'Autoeficacia', pre: 5, mid: 6, post: 7 }, ...]
-    const metrics = ['self_efficacy', 'hope', 'resilience', 'optimism', 'emotional_exhaustion', 'depersonalization', 'personal_accomplishment', 'depression', 'anxiety', 'stress'];
-    
-    const chartData = metrics.map(metric => {
-      const entry: any = { name: getMetricLabel(metric) };
-      data.forEach(record => {
-        if (record[metric] !== null && record[metric] !== undefined) {
-          entry[record.moment] = record[metric];
-        }
-      });
-      return entry;
-    }).filter(item => item.pre !== undefined || item.mid !== undefined || item.post !== undefined);
-
-    setHistoryData(chartData);
-  };
-
-  const getMetricLabel = (key: string) => {
-    const labels: Record<string, string> = {
-      self_efficacy: 'Autoeficacia', hope: 'Esperanza', resilience: 'Resiliencia', optimism: 'Optimismo',
-      emotional_exhaustion: 'Agotamiento', depersonalization: 'Despersonalización', personal_accomplishment: 'Realización',
-      depression: 'Depresión', anxiety: 'Ansiedad', stress: 'Estrés'
-    };
-    return labels[key] || key;
-  };
-
-  const handleInputChange = (key: string, value: string) => {
-    setFormData(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
+  const handleInputChange = (test: string, scale: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [test]: { ...prev[test], [scale]: value }
+    }));
   };
 
   const handleSave = async () => {
-    setLoading(true);
+    setSaving(true);
     try {
+      // Transformar datos para guardar
       const payload = {
         patient_id: patientId,
-        moment: activeMoment,
-        ...formData
+        moment: activeTab, // 'pre', 'mid', 'post'
+        pcq_se: parseFloat(formData.pcq.se) || 0,
+        pcq_h: parseFloat(formData.pcq.h) || 0,
+        pcq_r: parseFloat(formData.pcq.r) || 0,
+        pcq_o: parseFloat(formData.pcq.o) || 0,
+        mbi_ae: parseFloat(formData.mbi.ae) || 0,
+        mbi_dp: parseFloat(formData.mbi.dp) || 0,
+        mbi_rp: parseFloat(formData.mbi.rp) || 0,
+        dass_d: parseFloat(formData.dass.d) || 0,
+        dass_a: parseFloat(formData.dass.a) || 0,
+        dass_s: parseFloat(formData.dass.s) || 0,
       };
 
-      // Upsert: Insertar o actualizar si ya existe para este paciente y momento
-      const { error } = await supabase
-        .from('psychometric_evaluations')
-        .upsert(payload, { onConflict: 'patient_id,moment' });
-
+      const { error } = await supabase.from('psychometric_evaluations').upsert(payload, { onConflict: 'patient_id,moment' });
       if (error) throw error;
 
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-      loadData(); // Recargar para actualizar gráficas
+      alert("✅ Resultados guardados correctamente");
+      fetchSavedData();
     } catch (err: any) {
-      alert("Error al guardar: " + err.message);
+      alert("❌ Error al guardar: " + err.message);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  // Configuración de campos según prueba y momento
-  const getFields = () => {
-    const commonPCQ = [
-      { key: 'self_efficacy', label: 'Autoeficacia (PCQ)', max: 42 },
-      { key: 'hope', label: 'Esperanza (PCQ)', max: 42 },
-      { key: 'resilience', label: 'Resiliencia (PCQ)', max: 42 },
-      { key: 'optimism', label: 'Optimismo (PCQ)', max: 42 }
-    ];
+  // Generar datos para gráfica comparativa
+  const getChartData = (type: 'pcq' | 'mbi' | 'dass') => {
+    if (!savedData) return [];
     
-    const mbiFields = [
-      { key: 'emotional_exhaustion', label: 'Agotamiento Emocional (MBI)', max: 54 },
-      { key: 'depersonalization', label: 'Despersonalización (MBI)', max: 30 },
-      { key: 'personal_accomplishment', label: 'Realización Personal (MBI)', max: 48 }
-    ];
+    const mapMoment = (m: string) => m === 'pre' ? 'Inicio' : m === 'mid' ? 'Mitad' : 'Final';
 
-    const dassFields = [
-      { key: 'depression', label: 'Depresión (DASS)', max: 42 },
-      { key: 'anxiety', label: 'Ansiedad (DASS)', max: 24 },
-      { key: 'stress', label: 'Estrés (DASS)', max: 42 }
-    ];
-
-    if (activeMoment === 'mid') return commonPCQ; // Solo PCQ en mitad
-    return [...commonPCQ, ...mbiFields, ...dassFields]; // Todo en Pre y Post
+    return savedData.map((d: any) => ({
+      name: mapMoment(d.moment),
+      ...(type === 'pcq' ? { 
+        'Autoeficacia': d.pcq_se, 'Esperanza': d.pcq_h, 'Resiliencia': d.pcq_r, 'Optimismo': d.pcq_o 
+      } : type === 'mbi' ? {
+        'Agotamiento': d.mbi_ae, 'Despers.': d.mbi_dp, 'Realización': d.mbi_rp
+      } : {
+        'Depresión': d.dass_d, 'Ansiedad': d.dass_a, 'Estrés': d.dass_s
+      })
+    }));
   };
 
+  const renderInput = (label: string, val: any, onChange: (v: string) => void, max: number) => (
+    <div className="flex flex-col">
+      <label className="text-xs text-zinc-400 mb-1">{label}</label>
+      <input 
+        type="number" 
+        max={max}
+        value={val} 
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center font-mono focus:border-blue-500 outline-none"
+      />
+    </div>
+  );
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Selector de Momento Temporal */}
-      <div className="flex justify-center gap-2 mb-6 bg-zinc-900 p-1 rounded-lg border border-zinc-800">
-        <Button 
-          variant={activeMoment === 'pre' ? 'default' : 'ghost'} 
-          onClick={() => setActiveMoment('pre')}
-          className={activeMoment === 'pre' ? 'bg-blue-600 text-white' : 'text-zinc-400'}
-        >
-          📍 Inicio (Pre)
-        </Button>
-        <Button 
-          variant={activeMoment === 'mid' ? 'default' : 'ghost'} 
-          onClick={() => setActiveMoment('mid')}
-          className={activeMoment === 'mid' ? 'bg-blue-600 text-white' : 'text-zinc-400'}
-        >
-          ⏳ Mitad (Solo PCQ)
-        </Button>
-        <Button 
-          variant={activeMoment === 'post' ? 'default' : 'ghost'} 
-          onClick={() => setActiveMoment('post')}
-          className={activeMoment === 'post' ? 'bg-blue-600 text-white' : 'text-zinc-400'}
-        >
-          🏁 Final (Post)
+    <div className="space-y-8">
+      {/* Selector de Momento */}
+      <div className="flex justify-center gap-4 bg-zinc-900 p-2 rounded-lg border border-zinc-800">
+        <Button variant={activeTab === 'pre' ? 'default' : 'ghost'} onClick={() => setActiveTab('pre')} className={activeTab === 'pre' ? 'bg-white text-black' : 'text-zinc-400'}>Inicio (Pre)</Button>
+        <Button variant={activeTab === 'mid' ? 'default' : 'ghost'} onClick={() => setActiveTab('mid')} className={activeTab === 'mid' ? 'bg-white text-black' : 'text-zinc-400'}>Mitad (Solo PCQ)</Button>
+        <Button variant={activeTab === 'post' ? 'default' : 'ghost'} onClick={() => setActiveTab('post')} className={activeTab === 'post' ? 'bg-white text-black' : 'text-zinc-400'}>Final (Post)</Button>
+      </div>
+
+      {/* Inputs por Prueba (Separados Visualmente) */}
+      <div className="grid grid-cols-1 gap-6">
+        
+        {/* TARJETA PCQ */}
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2"><Brain className="text-purple-400"/> PCQ-24 (Capital Psicológico)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {renderInput("Autoeficacia (Max 42)", formData.pcq.se, (v) => handleInputChange('pcq', 'se', v), 42)}
+              {renderInput("Esperanza (Max 42)", formData.pcq.h, (v) => handleInputChange('pcq', 'h', v), 42)}
+              {renderInput("Resiliencia (Max 42)", formData.pcq.r, (v) => handleInputChange('pcq', 'r', v), 42)}
+              {renderInput("Optimismo (Max 42)", formData.pcq.o, (v) => handleInputChange('pcq', 'o', v), 42)}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* TARJETA MBI (Solo en Pre y Post) */}
+        {(activeTab === 'pre' || activeTab === 'post') && (
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2"><Activity className="text-orange-400"/> MBI (Burnout)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {renderInput("Agotamiento Emocional (Max 54)", formData.mbi.ae, (v) => handleInputChange('mbi', 'ae', v), 54)}
+                {renderInput("Despersonalización (Max 30)", formData.mbi.dp, (v) => handleInputChange('mbi', 'dp', v), 30)}
+                {renderInput("Realización Personal (Max 48)", formData.mbi.rp, (v) => handleInputChange('mbi', 'rp', v), 48)}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* TARJETA DASS (Solo en Pre y Post) */}
+        {(activeTab === 'pre' || activeTab === 'post') && (
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2"><AlertTriangle className="text-red-400"/> DASS-21</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {renderInput("Depresión (Max 42)", formData.dass.d, (v) => handleInputChange('dass', 'd', v), 42)}
+                {renderInput("Ansiedad (Max 42)", formData.dass.a, (v) => handleInputChange('dass', 'a', v), 42)}
+                {renderInput("Estrés (Max 42)", formData.dass.s, (v) => handleInputChange('dass', 's', v), 42)}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-8">
+          {saving ? 'Guardando...' : <><Save className="w-4 h-4 mr-2"/> Guardar Resultados</>}
         </Button>
       </div>
 
-      {saved && (
-        <div className="bg-green-900/20 border border-green-800 text-green-400 p-3 rounded flex items-center gap-2">
-          <CheckCircle className="w-4 h-4" /> Datos guardados correctamente.
-        </div>
-      )}
-
-      {/* Formulario de Ingreso de Puntajes */}
-      <Card className="bg-zinc-900 border-zinc-800">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Save className="w-5 h-5 text-blue-500" />
-            Ingreso de Resultados - {activeMoment === 'pre' ? 'Inicio' : activeMoment === 'mid' ? 'Mitad' : 'Final'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {getFields().map((field) => (
-              <div key={field.key} className="space-y-2">
-                <Label className="text-zinc-300 text-sm">{field.label}</Label>
-                <Input 
-                  type="number" 
-                  value={formData[field.key] || ''} 
-                  onChange={(e) => handleInputChange(field.key, e.target.value)}
-                  placeholder="0"
-                  className="bg-zinc-950 border-zinc-700 text-white focus:border-blue-500"
-                  max={field.max}
-                />
-                <p className="text-xs text-zinc-500">Máx: {field.max}</p>
-              </div>
-            ))}
-          </div>
+      {/* GRÁFICAS COMPARATIVAS AUTOMÁTICAS */}
+      {savedData && savedData.length > 0 && (
+        <div className="space-y-8 pt-8 border-t border-zinc-800">
+          <h3 className="text-xl font-bold text-white mb-4">Evolución Comparativa</h3>
           
-          <div className="mt-6 flex justify-end">
-            <Button onClick={handleSave} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
-              {loading ? 'Guardando...' : 'Guardar Resultados'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader><CardTitle className="text-sm text-zinc-400">Evolución PCQ</CardTitle></CardHeader>
+            <CardContent className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={getChartData('pcq')}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <XAxis dataKey="name" stroke="#888" />
+                  <YAxis stroke="#888" />
+                  <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }} />
+                  <Legend />
+                  <Bar dataKey="Autoeficacia" fill="#8b5cf6" />
+                  <Bar dataKey="Esperanza" fill="#3b82f6" />
+                  <Bar dataKey="Resiliencia" fill="#10b981" />
+                  <Bar dataKey="Optimismo" fill="#f59e0b" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
-      {/* Gráficas Comparativas */}
-      {historyData.length > 0 && (
-        <div className="space-y-8 mt-8">
-          <h3 className="text-xl font-bold text-white border-l-4 border-blue-500 pl-3">Evolución Clínica</h3>
+          {(activeTab === 'pre' || activeTab === 'post') && savedData.some((d:any) => d.mbi_ae > 0) && (
+             <Card className="bg-zinc-900 border-zinc-800">
+             <CardHeader><CardTitle className="text-sm text-zinc-400">Evolución MBI</CardTitle></CardHeader>
+             <CardContent className="h-64">
+               <ResponsiveContainer width="100%" height="100%">
+                 <BarChart data={getChartData('mbi')}>
+                   <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                   <XAxis dataKey="name" stroke="#888" />
+                   <YAxis stroke="#888" />
+                   <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }} />
+                   <Legend />
+                   <Bar dataKey="Agotamiento" fill="#ef4444" />
+                   <Bar dataKey="Despers." fill="#f97316" />
+                   <Bar dataKey="Realización" fill="#22c55e" />
+                 </BarChart>
+               </ResponsiveContainer>
+             </CardContent>
+           </Card>
+          )}
           
-          {/* Gráfica PCQ */}
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader><CardTitle className="text-white text-sm">Capital Psicológico (PCQ)</CardTitle></CardHeader>
-            <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={historyData.filter(d => ['Autoeficacia', 'Esperanza', 'Resiliencia', 'Optimismo'].includes(d.name))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="name" stroke="#888" angle={-10} textAnchor="end" height={60} tick={{fontSize: 12}} />
-                  <YAxis stroke="#888" />
-                  <Tooltip contentStyle={{backgroundColor: '#18181b', borderColor: '#333', color: '#fff'}} />
-                  <Legend />
-                  <ReferenceLine y={25} stroke="#ef4444" strokeDasharray="3 3" label="Umbral Riesgo" />
-                  <Bar dataKey="pre" fill="#71717a" name="Inicio" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="mid" fill="#3b82f6" name="Mitad" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="post" fill="#22c55e" name="Final" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Gráfica MBI */}
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader><CardTitle className="text-white text-sm">Burnout (MBI)</CardTitle></CardHeader>
-            <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={historyData.filter(d => ['Agotamiento', 'Despersonalización', 'Realización'].includes(d.name))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="name" stroke="#888" angle={-10} textAnchor="end" height={60} tick={{fontSize: 12}} />
-                  <YAxis stroke="#888" />
-                  <Tooltip contentStyle={{backgroundColor: '#18181b', borderColor: '#333', color: '#fff'}} />
-                  <Legend />
-                  <Bar dataKey="pre" fill="#71717a" name="Inicio" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="mid" fill="#3b82f6" name="Mitad" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="post" fill="#22c55e" name="Final" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-           {/* Gráfica DASS */}
-           <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader><CardTitle className="text-white text-sm">Salud Mental (DASS-21)</CardTitle></CardHeader>
-            <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={historyData.filter(d => ['Depresión', 'Ansiedad', 'Estrés'].includes(d.name))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="name" stroke="#888" angle={-10} textAnchor="end" height={60} tick={{fontSize: 12}} />
-                  <YAxis stroke="#888" />
-                  <Tooltip contentStyle={{backgroundColor: '#18181b', borderColor: '#333', color: '#fff'}} />
-                  <Legend />
-                  <ReferenceLine y={10} stroke="#ef4444" strokeDasharray="3 3" label="Severo" />
-                  <Bar dataKey="pre" fill="#71717a" name="Inicio" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="mid" fill="#3b82f6" name="Mitad" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="post" fill="#22c55e" name="Final" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+          {(activeTab === 'pre' || activeTab === 'post') && savedData.some((d:any) => d.dass_d > 0) && (
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardHeader><CardTitle className="text-sm text-zinc-400">Evolución DASS-21</CardTitle></CardHeader>
+              <CardContent className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={getChartData('dass')}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                    <XAxis dataKey="name" stroke="#888" />
+                    <YAxis stroke="#888" />
+                    <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }} />
+                    <Legend />
+                    <ReferenceLine y={10} stroke="#ef4444" strokeDasharray="3 3" label="Umbral Ansiedad" />
+                    <Bar dataKey="Depresión" fill="#8b5cf6" />
+                    <Bar dataKey="Ansiedad" fill="#ef4444" />
+                    <Bar dataKey="Estrés" fill="#f59e0b" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>

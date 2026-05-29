@@ -1,22 +1,20 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { Brain, Activity, AlertTriangle, CheckCircle, Save } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { CheckCircle, AlertCircle } from 'lucide-react';
 
-interface EvalProps {
-  patientId?: string;
-}
-
-export default function PsychometricEval({ patientId }: EvalProps) {
-  // Estado para el momento temporal (Pre, Mid, Post)
+export default function PsychometricEval() {
+  const { patientId } = useParams<{ patientId: string }>();
   const [activeMoment, setActiveMoment] = useState<'pre' | 'mid' | 'post'>('pre');
+  const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // Estados para los formularios (Inicializados en 0 o vacío)
-  const [formData, setFormData] = useState({
+  // Estado único para todos los puntajes
+  const [scores, setScores] = useState({
     pcq_efficacy: '', pcq_hope: '', pcq_resilience: '', pcq_optimism: '',
     mbi_exhaustion: '', mbi_depersonalization: '', mbi_personal_accomplishment: '',
     dass_depression: '', dass_anxiety: '', dass_stress: ''
@@ -25,10 +23,10 @@ export default function PsychometricEval({ patientId }: EvalProps) {
   // Cargar datos existentes al cambiar de pestaña
   useEffect(() => {
     if (!patientId || !activeMoment) return;
-    loadEvaluation();
+    loadScores();
   }, [activeMoment, patientId]);
 
-  const loadEvaluation = async () => {
+  const loadScores = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -39,7 +37,7 @@ export default function PsychometricEval({ patientId }: EvalProps) {
         .single();
 
       if (data) {
-        setFormData({
+        setScores({
           pcq_efficacy: data.pcq_efficacy?.toString() || '',
           pcq_hope: data.pcq_hope?.toString() || '',
           pcq_resilience: data.pcq_resilience?.toString() || '',
@@ -53,7 +51,7 @@ export default function PsychometricEval({ patientId }: EvalProps) {
         });
       } else {
         // Limpiar si no hay datos
-        setFormData({
+        setScores({
           pcq_efficacy: '', pcq_hope: '', pcq_resilience: '', pcq_optimism: '',
           mbi_exhaustion: '', mbi_depersonalization: '', mbi_personal_accomplishment: '',
           dass_depression: '', dass_anxiety: '', dass_stress: ''
@@ -67,160 +65,142 @@ export default function PsychometricEval({ patientId }: EvalProps) {
   };
 
   const handleSave = async () => {
-    if (!patientId) return;
     setLoading(true);
-    
-    // Construir objeto explícito con tipos numéricos
-    const payload = {
-      patient_id: patientId,
-      moment: activeMoment,
-      pcq_efficacy: formData.pcq_efficacy ? parseFloat(formData.pcq_efficacy) : null,
-      pcq_hope: formData.pcq_hope ? parseFloat(formData.pcq_hope) : null,
-      pcq_resilience: formData.pcq_resilience ? parseFloat(formData.pcq_resilience) : null,
-      pcq_optimism: formData.pcq_optimism ? parseFloat(formData.pcq_optimism) : null,
-      mbi_exhaustion: formData.mbi_exhaustion ? parseFloat(formData.mbi_exhaustion) : null,
-      mbi_depersonalization: formData.mbi_depersonalization ? parseFloat(formData.mbi_depersonalization) : null,
-      mbi_personal_accomplishment: formData.mbi_personal_accomplishment ? parseFloat(formData.mbi_personal_accomplishment) : null,
-      dass_depression: formData.dass_depression ? parseFloat(formData.dass_depression) : null,
-      dass_anxiety: formData.dass_anxiety ? parseFloat(formData.dass_anxiety) : null,
-      dass_stress: formData.dass_stress ? parseFloat(formData.dass_stress) : null,
-    };
-
     try {
-      // Intentar actualizar primero (upsert manual)
-      const { data: existing } = await supabase
-        .from('psychometric_evaluations')
-        .select('id')
-        .eq('patient_id', patientId)
-        .eq('moment', activeMoment)
-        .single();
+      const payload = {
+        patient_id: patientId,
+        moment: activeMoment,
+        pcq_efficacy: parseFloat(scores.pcq_efficacy) || null,
+        pcq_hope: parseFloat(scores.pcq_hope) || null,
+        pcq_resilience: parseFloat(scores.pcq_resilience) || null,
+        pcq_optimism: parseFloat(scores.pcq_optimism) || null,
+        mbi_exhaustion: parseFloat(scores.mbi_exhaustion) || null,
+        mbi_depersonalization: parseFloat(scores.mbi_depersonalization) || null,
+        mbi_personal_accomplishment: parseFloat(scores.mbi_personal_accomplishment) || null,
+        dass_depression: parseFloat(scores.dass_depression) || null,
+        dass_anxiety: parseFloat(scores.dass_anxiety) || null,
+        dass_stress: parseFloat(scores.dass_stress) || null
+      };
 
-      let error;
-      if (existing) {
-        const res = await supabase.from('psychometric_evaluations').update(payload).eq('id', existing.id);
-        error = res.error;
-      } else {
-        const res = await supabase.from('psychometric_evaluations').insert([payload]);
-        error = res.error;
+      // Intentar actualizar primero, si no existe, insertar
+      let { error: updateError } = await supabase
+        .from('psychometric_evaluations')
+        .update(payload)
+        .eq('patient_id', patientId)
+        .eq('moment', activeMoment);
+
+      if (updateError || false) { // Si falla update o no encuentra rows
+         const { error: insertError } = await supabase.from('psychometric_evaluations').insert([payload]);
+         if (insertError) throw insertError;
       }
 
-      if (error) throw error;
-      alert("✅ Evaluación guardada correctamente");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
       alert("❌ Error al guardar: " + err.message);
-      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
-    // Permitir solo números o vacío
-    if (value !== '' && !/^\d+\.?\d*$/.test(value)) return;
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = (field: keyof typeof scores, value: string) => {
+    // Solo permitir números
+    if (value && !/^\d*\.?\d*$/.test(value)) return;
+    setScores(prev => ({ ...prev, [field]: value }));
   };
 
   // Renderizado condicional de pruebas según el momento
-  const showPCQ = true;
-  const showMBI = activeMoment !== 'mid'; // No mostrar MBI en mitad
-  const showDASS = activeMoment !== 'mid'; // No mostrar DASS en mitad
+  const showMBI = activeMoment !== 'mid';
+  const showDASS = activeMoment !== 'mid';
 
   return (
     <div className="space-y-6 animate-in fade-in">
-      {/* Selector de Momento */}
-      <div className="flex justify-center gap-4 mb-8">
-        <Button variant={activeMoment === 'pre' ? 'default' : 'outline'} onClick={() => setActiveMoment('pre')} className={activeMoment === 'pre' ? 'bg-blue-600 text-white' : 'border-zinc-700 text-zinc-400'}>
-          Inicio (Pre)
-        </Button>
-        <Button variant={activeMoment === 'mid' ? 'default' : 'outline'} onClick={() => setActiveMoment('mid')} className={activeMoment === 'mid' ? 'bg-blue-600 text-white' : 'border-zinc-700 text-zinc-400'}>
-          Mitad (Intermedio)
-        </Button>
-        <Button variant={activeMoment === 'post' ? 'default' : 'outline'} onClick={() => setActiveMoment('post')} className={activeMoment === 'post' ? 'bg-blue-600 text-white' : 'border-zinc-700 text-zinc-400'}>
-          Final (Post)
-        </Button>
+      {/* Tabs Superiores */}
+      <div className="flex gap-2 border-b border-zinc-800 pb-2">
+        <Button variant={activeMoment === 'pre' ? 'default' : 'ghost'} onClick={() => setActiveMoment('pre')} className={activeMoment === 'pre' ? 'bg-white text-black' : 'text-zinc-400'}>Inicio (Pre)</Button>
+        <Button variant={activeMoment === 'mid' ? 'default' : 'ghost'} onClick={() => setActiveMoment('mid')} className={activeMoment === 'mid' ? 'bg-white text-black' : 'text-zinc-400'}>Mitad (Intermedio)</Button>
+        <Button variant={activeMoment === 'post' ? 'default' : 'ghost'} onClick={() => setActiveMoment('post')} className={activeMoment === 'post' ? 'bg-white text-black' : 'text-zinc-400'}>Final (Post)</Button>
       </div>
 
-      {loading && <p className="text-center text-zinc-400">Cargando datos...</p>}
+      {saved && (
+        <div className="bg-green-900/20 border border-green-800 text-green-400 p-3 rounded flex items-center gap-2">
+          <CheckCircle className="w-4 h-4" /> Guardado correctamente en {activeMoment.toUpperCase()}
+        </div>
+      )}
 
-      {/* PCQ-24 */}
-      {showPCQ && (
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader><CardTitle className="text-white flex items-center gap-2"><Brain className="w-5 h-5 text-purple-500"/> PCQ-24 (Capital Psicológico)</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { label: 'Autoeficacia', key: 'pcq_efficacy' },
-              { label: 'Esperanza', key: 'pcq_hope' },
-              { label: 'Resiliencia', key: 'pcq_resilience' },
-              { label: 'Optimismo', key: 'pcq_optimism' }
-            ].map((item) => (
-              <div key={item.key}>
-                <label className="text-xs text-zinc-400 block mb-1">{item.label}</label>
+      {/* PCQ-24 (Siempre visible) */}
+      <Card className="bg-zinc-900 border-zinc-800">
+        <CardHeader><CardTitle className="text-white text-lg">🧠 PCQ-24 (Capital Psicológico)</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-xs text-zinc-500 mb-4">Ingresa el puntaje promedio final de cada subescala (1-7).</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {['pcq_efficacy', 'pcq_hope', 'pcq_resilience', 'pcq_optimism'].map((field) => (
+              <div key={field}>
+                <label className="text-xs text-zinc-400 capitalize block mb-1">{field.replace('pcq_', '')}</label>
                 <input 
                   type="text" 
-                  value={formData[item.key as keyof typeof formData]} 
-                  onChange={(e) => handleInputChange(item.key, e.target.value)}
+                  value={scores[field as keyof typeof scores]} 
+                  onChange={(e) => handleInputChange(field as keyof typeof scores, e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="0"
+                  placeholder="0.0"
                 />
               </div>
             ))}
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* MBI */}
+      {/* MBI (Solo Pre y Post) */}
       {showMBI && (
         <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader><CardTitle className="text-white flex items-center gap-2"><Activity className="w-5 h-5 text-orange-500"/> MBI (Burnout)</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { label: 'Agotamiento Emocional', key: 'mbi_exhaustion' },
-              { label: 'Despersonalización', key: 'mbi_depersonalization' },
-              { label: 'Realización Personal', key: 'mbi_personal_accomplishment' }
-            ].map((item) => (
-              <div key={item.key}>
-                <label className="text-xs text-zinc-400 block mb-1">{item.label}</label>
-                <input 
-                  type="text" 
-                  value={formData[item.key as keyof typeof formData]} 
-                  onChange={(e) => handleInputChange(item.key, e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="0"
-                />
-              </div>
-            ))}
+          <CardHeader><CardTitle className="text-white text-lg">🔥 MBI (Burnout)</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-xs text-zinc-500 mb-4">Ingresa la suma total de cada subescala.</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {['mbi_exhaustion', 'mbi_depersonalization', 'mbi_personal_accomplishment'].map((field) => (
+                <div key={field}>
+                  <label className="text-xs text-zinc-400 capitalize block mb-1">{field.replace('mbi_', '')}</label>
+                  <input 
+                    type="text" 
+                    value={scores[field as keyof typeof scores]} 
+                    onChange={(e) => handleInputChange(field as keyof typeof scores, e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="0"
+                  />
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* DASS-21 */}
+      {/* DASS-21 (Solo Pre y Post) */}
       {showDASS && (
         <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader><CardTitle className="text-white flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-red-500"/> DASS-21</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { label: 'Depresión', key: 'dass_depression' },
-              { label: 'Ansiedad', key: 'dass_anxiety' },
-              { label: 'Estrés', key: 'dass_stress' }
-            ].map((item) => (
-              <div key={item.key}>
-                <label className="text-xs text-zinc-400 block mb-1">{item.label}</label>
-                <input 
-                  type="text" 
-                  value={formData[item.key as keyof typeof formData]} 
-                  onChange={(e) => handleInputChange(item.key, e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="0"
-                />
-              </div>
-            ))}
+          <CardHeader><CardTitle className="text-white text-lg">⚠️ DASS-21</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-xs text-zinc-500 mb-4">Ingresa el puntaje final (suma x2) de cada subescala.</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {['dass_depression', 'dass_anxiety', 'dass_stress'].map((field) => (
+                <div key={field}>
+                  <label className="text-xs text-zinc-400 capitalize block mb-1">{field.replace('dass_', '')}</label>
+                  <input 
+                    type="text" 
+                    value={scores[field as keyof typeof scores]} 
+                    onChange={(e) => handleInputChange(field as keyof typeof scores, e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="0"
+                  />
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
 
-      <div className="flex justify-end pt-4">
-        <Button onClick={handleSave} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white px-8">
-          {loading ? 'Guardando...' : <><Save className="w-4 h-4 mr-2"/> Guardar Puntuaciones</>}
+      <div className="flex justify-end pt-4 border-t border-zinc-800">
+        <Button onClick={handleSave} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-8">
+          {loading ? 'Guardando...' : 'Guardar Puntuaciones'}
         </Button>
       </div>
     </div>

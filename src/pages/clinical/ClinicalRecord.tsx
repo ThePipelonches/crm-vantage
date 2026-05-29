@@ -1,345 +1,308 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../hooks/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { ArrowLeft, User, Phone, Mail, Calendar, Activity, FileText, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { Activity, Save, CheckCircle, AlertCircle } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import PsychometricEval from './PsychometricEval';
 
-type Moment = 'pre' | 'mid' | 'post';
-
-interface EvalProps { patientId: string; }
-
-export default function PsychometricEval({ patientId }: EvalProps) {
-  const { user } = useAuth();
+export default function ClinicalRecord() {
+  const { patientId } = useParams<{ patientId: string }>();
+  const navigate = useNavigate();
+  const [patient, setPatient] = useState<any>(null);
+  const [rolLogs, setRolLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [successMsg, setSuccessMsg] = useState("");
+  
+  // Estado para pestañas principales
+  const [activeTab, setActiveTab] = useState<'data' | 'rol' | 'eval'>('data');
 
-  // Estados para almacenar los puntajes de cada momento
-  // Estructura: { pre: { se: 0, h: 0... }, mid: {...}, post: {...} }
-  const [pcq, setPcq] = useState<Record<Moment, Record<string, number>>>(
-    { pre: {}, mid: {}, post: {} }
-  );
-  const [mbi, setMbi] = useState<Record<Moment, Record<string, number>>>(
-    { pre: {}, mid: {}, post: {} }
-  );
-  const [dass, setDass] = useState<Record<Moment, Record<string, number>>>(
-    { pre: {}, mid: {}, post: {} }
-  );
+  // Estados para formulario ROL
+  const [newRisk, setNewRisk] = useState('low');
+  const [commentText, setCommentText] = useState('');
+  const [planText, setPlanText] = useState('');
+  const [savingRol, setSavingRol] = useState(false);
 
-  // Cargar datos existentes
   useEffect(() => {
     if (!patientId) return;
-    const loadData = async () => {
-      const { data, error } = await supabase
-        .from('psychometric_evaluations')
-        .select('*')
-        .eq('patient_id', patientId)
-        .single();
-
-      if (!error && data) {
-        setPcq(data.pcq_data || { pre: {}, mid: {}, post: {} });
-        setMbi(data.mbi_data || { pre: {}, mid: {}, post: {} });
-        setDass(data.dass_data || { pre: {}, mid: {}, post: {} });
-      }
-      setLoading(false);
-    };
-    loadData();
+    fetchData();
   }, [patientId]);
 
-  const handleSave = async () => {
-    if (!user || !patientId) return;
-    setSaving(true);
-    
-    const payload = {
-      patient_id: patientId,
-      pcq_data: pcq,
-      mbi_data: mbi,
-      dass_data: dass
-    };
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // 1. Cargar Paciente
+      const { data: pData, error: pErr } = await supabase
+        .from('patients')
+        .select('*')
+        .eq('id', patientId)
+        .single();
+      if (pErr) throw pErr;
+      setPatient(pData);
 
-    // Upsert: Insertar o actualizar si ya existe para este paciente
-    const { error } = await supabase
-      .from('psychometric_evaluations')
-      .upsert(payload, { onConflict: 'patient_id' });
-
-    if (error) {
-      alert("Error al guardar: " + error.message);
-    } else {
-      setSuccessMsg("Ã¢Å“â€¦ Evaluaciones guardadas correctamente.");
-      setTimeout(() => setSuccessMsg(""), 3000);
+      // 2. Cargar Historial ROL
+      const { data: rData, error: rErr } = await supabase
+        .from('patient_rol_logs')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('session_number', { ascending: true });
+      
+      if (!rErr) setRolLogs(rData || []);
+    } catch (err) {
+      console.error("Error cargando datos:", err);
+    } finally {
+      setLoading(false);
     }
-    setSaving(false);
   };
 
-  // Helper para inputs numÃƒÂ©ricos
-  const NumInput = ({ val, onChange, max }: any) => (
-    <Input 
-      type="number" 
-      min="0" 
-      max={max} 
-      value={val || ''} 
-      onChange={(e) => onChange(parseFloat(e.target.value))}
-      className="h-8 w-full text-center bg-zinc-950 border-zinc-700 text-white focus:border-blue-500"
-      placeholder="-"
-    />
-  );
+  const handleSaveRol = async () => {
+    if (!patientId) return;
+    setSavingRol(true);
+    
+    // Calcular sesión siguiente
+    const nextSession = (rolLogs.length > 0 ? Math.max(...rolLogs.map((l: any) => l.session_number || 0)) : 0) + 1;
+    
+    // Mapeo de riesgo texto a número
+    const riskMap: Record<string, number> = { 'low': 1, 'medium': 2, 'high': 3 };
+    const riskNum = riskMap[newRisk] || 1;
 
-  if (loading) return <div className="p-6 text-zinc-400">Cargando evaluaciones...</div>;
+    try {
+      const { error } = await supabase.from('patient_rol_logs').insert([{
+        patient_id: patientId,
+        session_number: nextSession,
+        risk_level: newRisk,
+        risk_numeric: riskNum,
+        comments: commentText || null,
+        action_plan: planText || null,
+        created_by: (await supabase.auth.getUser()).data.user?.id
+      }]);
+
+      if (error) throw error;
+
+      alert('✅ ROL guardado correctamente');
+      setCommentText('');
+      setPlanText('');
+      fetchData(); // Recargar gráfica
+    } catch (err: any) {
+      alert('❌ Error: ' + err.message);
+    } finally {
+      setSavingRol(false);
+    }
+  };
+
+  // Preparar datos para la gráfica (Compatibilidad Legacy)
+  const chartData = (rolLogs || []).map((log: any, index: number) => {
+    const session = log.session_number ? parseInt(log.session_number) : index + 1;
+    let riskVal = log.risk_numeric;
+    
+    // Fallback para registros antiguos sin risk_numeric
+    if (riskVal === null || riskVal === undefined) {
+      if (log.risk_level === 'high') riskVal = 3;
+      else if (log.risk_level === 'medium') riskVal = 2;
+      else if (log.risk_level === 'low') riskVal = 1;
+      else riskVal = 0;
+    }
+    
+    return { session, risk: riskVal, level: log.risk_level };
+  });
+
+  if (loading) return <div className="p-6 text-white">Cargando historia clínica...</div>;
+  if (!patient) return <div className="p-6 text-red-400">Paciente no encontrado.</div>;
+
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'active': return 'bg-green-900 text-green-400 border-green-800';
+      case 'inactive': return 'bg-orange-900 text-orange-400 border-orange-800';
+      case 'deserter': return 'bg-red-900 text-red-400 border-red-800';
+      default: return 'bg-zinc-800 text-zinc-400';
+    }
+  };
 
   return (
-    <div className="space-y-8 pb-10">
-      {successMsg && (
-        <div className="bg-green-900/20 border border-green-800 text-green-400 p-3 rounded flex items-center gap-2 animate-in fade-in">
-          <CheckCircle className="w-4 h-4" /> {successMsg}
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="ghost" onClick={() => navigate('/patients')} className="text-zinc-400 hover:text-white">
+          <ArrowLeft className="w-5 h-5 mr-2" /> Volver
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <User className="w-6 h-6 text-blue-500" /> {patient.full_name}
+          </h1>
+          <div className="flex gap-4 mt-1 text-sm text-zinc-400">
+            <span className="flex items-center gap-1"><Mail className="w-4 h-4"/> {patient.email}</span>
+            <span className="flex items-center gap-1"><Phone className="w-4 h-4"/> {patient.phone || 'N/A'}</span>
+            <Badge className={`${getStatusColor(patient.status)} border px-2 py-0 text-xs`}>
+              {patient.status === 'active' ? 'Activo' : patient.status === 'inactive' ? 'Inactivo' : 'Desertor'}
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      {/* Pestañas Principales */}
+      <div className="flex gap-2 border-b border-zinc-800">
+        <button onClick={() => setActiveTab('data')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'data' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>Datos Clínicos</button>
+        <button onClick={() => setActiveTab('rol')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'rol' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>ROL Semanal</button>
+        <button onClick={() => setActiveTab('eval')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'eval' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>Evaluaciones</button>
+      </div>
+
+      {/* Contenido Dinámico */}
+      {activeTab === 'eval' ? (
+        <PsychometricEval patientId={patientId} />
+      ) : activeTab === 'rol' ? (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+          {/* Formulario ROL */}
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader><CardTitle className="text-white flex items-center gap-2"><Activity className="w-5 h-5 text-purple-500"/> Registrar Nueva Sesión (Sesión {rolLogs.length + 1})</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">Nivel de Riesgo</label>
+                  <select value={newRisk} onChange={(e) => setNewRisk(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 text-white rounded p-2">
+                    <option value="low">Bajo (Verde)</option>
+                    <option value="medium">Medio (Amarillo)</option>
+                    <option value="high">Alto (Rojo)</option>
+                  </select>
+                </div>
+              </div>
+              
+              {(newRisk === 'medium' || newRisk === 'high') && (
+                <div className="space-y-4 p-4 bg-zinc-950/50 rounded border border-zinc-800 animate-in fade-in">
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-1">Comentarios (¿Por qué este nivel?)</label>
+                    <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded p-2 h-20" placeholder="Describa los indicadores observados..." />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-1">Plan de Acción</label>
+                    <textarea value={planText} onChange={(e) => setPlanText(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded p-2 h-20" placeholder="Estrategias para esta semana..." />
+                  </div>
+                </div>
+              )}
+
+              <Button onClick={handleSaveRol} disabled={savingRol} className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                {savingRol ? 'Guardando...' : 'Guardar Registro ROL'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Gráfica ROL */}
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader><CardTitle className="text-white flex items-center gap-2"><TrendingUp className="w-5 h-5 text-green-500"/> Evolución del Riesgo por Sesión</CardTitle></CardHeader>
+            <CardContent className="h-[300px]">
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                    <XAxis dataKey="session" stroke="#999" label={{ value: 'Sesión', position: 'insideBottom', offset: -5 }} />
+                    <YAxis stroke="#999" domain={[0, 4]} ticks={[1, 2, 3]} label={{ value: 'Riesgo', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }}
+                      labelFormatter={(val) => `Sesión ${val}`}
+                      formatter={(val: number) => {
+                        if (val === 1) return ['Bajo', 'Riesgo'];
+                        if (val === 2) return ['Medio', 'Riesgo'];
+                        if (val === 3) return ['Alto', 'Riesgo'];
+                        return [val, 'Riesgo'];
+                      }}
+                    />
+                    <ReferenceLine y={1.5} stroke="#4ade80" strokeDasharray="3 3" label={{ value: 'Límite Bajo', fill: '#4ade80', fontSize: 12 }} />
+                    <ReferenceLine y={2.5} stroke="#fbbf24" strokeDasharray="3 3" label={{ value: 'Límite Medio', fill: '#fbbf24', fontSize: 12 }} />
+                    <Line type="monotone" dataKey="risk" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 6, fill: '#8b5cf6' }} activeDot={{ r: 8 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-zinc-500">Sin datos registrados aún</div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Tabla Histórica */}
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader><CardTitle className="text-white">Historial de Registros</CardTitle></CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-zinc-400">
+                  <thead className="text-xs uppercase bg-zinc-950 text-zinc-500">
+                    <tr>
+                      <th className="px-4 py-3">Sesión</th>
+                      <th className="px-4 py-3">Riesgo</th>
+                      <th className="px-4 py-3">Comentarios</th>
+                      <th className="px-4 py-3">Plan de Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chartData.map((d, i) => (
+                      <tr key={i} className="border-b border-zinc-800 hover:bg-zinc-800/50">
+                        <td className="px-4 py-3 font-mono text-white">{d.session}</td>
+                        <td className="px-4 py-3">
+                          <Badge className={d.risk === 1 ? 'bg-green-900 text-green-400' : d.risk === 2 ? 'bg-yellow-900 text-yellow-400' : 'bg-red-900 text-red-400'}>
+                            {d.risk === 1 ? 'Bajo' : d.risk === 2 ? 'Medio' : 'Alto'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 max-w-xs truncate">{rolLogs[i]?.comments || '-'}</td>
+                        <td className="px-4 py-3 max-w-xs truncate">{rolLogs[i]?.action_plan || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        /* Pestaña Datos Clínicos */
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-xl text-white flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-blue-500" /> Información Financiera
+                  </CardTitle>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-zinc-800">
+              <div>
+                <p className="text-xs text-zinc-500 uppercase">Valor Plan</p>
+                <p className="text-lg font-mono text-white">${patient.sale_total?.toLocaleString() || '0'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500 uppercase">Pago Inicial</p>
+                <p className="text-lg font-mono text-green-400">${patient.cash_collected?.toLocaleString() || '0'}</p>
+              </div>
+              {patient.installments_count > 0 && (
+                <div>
+                  <p className="text-xs text-zinc-500 uppercase">Cuotas Restantes</p>
+                  <p className="text-white">{patient.installments_count} x ${patient.installment_value?.toLocaleString()}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-zinc-500 uppercase">Fecha Inicio</p>
+                <p className="text-white">{new Date(patient.created_at).toLocaleDateString()}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Activity className="w-5 h-5 text-purple-500" /> Notas Generales
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-zinc-950 p-4 rounded border border-zinc-800 min-h-[150px] text-zinc-400 text-sm">
+                {patient.notes ? (
+                  <p className="whitespace-pre-wrap">{patient.notes}</p>
+                ) : (
+                  <p className="italic">Sin notas generales registradas.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
-
-      {/* --- PCQ SECTION --- */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
-          <Activity className="text-purple-400" />
-          <h2 className="text-xl font-bold text-white">PCQ-24 (Capital PsicolÃƒÂ³gico)</h2>
-        </div>
-        
-        {/* Inputs PCQ */}
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader><CardTitle className="text-sm text-zinc-400">Ingrese Puntajes Promedio por DimensiÃƒÂ³n</CardTitle></CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead>
-                  <tr className="border-b border-zinc-700 text-zinc-500">
-                    <th className="p-2">DimensiÃƒÂ³n</th>
-                    <th className="p-2 text-center w-24">Inicio (Pre)</th>
-                    <th className="p-2 text-center w-24">Mitad (Mid)</th>
-                    <th className="p-2 text-center w-24">Final (Post)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {['Autoeficacia', 'Esperanza', 'Resiliencia', 'Optimismo'].map((dim, idx) => {
-                    const keys = ['se', 'h', 'r', 'o'][idx];
-                    return (
-                      <tr key={dim} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
-                        <td className="p-2 font-medium text-zinc-300">{dim}</td>
-                        {(['pre', 'mid', 'post'] as Moment[]).map((m) => (
-                          <td key={m} className="p-2">
-                            <NumInput 
-                              val={pcq[m][keys]} 
-                              max={7}
-                              onChange={(v: number) => setPcq(prev => ({ ...prev, [m]: { ...prev[m], [keys]: v } }))} 
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* GrÃƒÂ¡fica PCQ */}
-        <PCQChart data={pcq} />
-      </section>
-
-      {/* --- MBI SECTION --- */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
-          <Activity className="text-orange-400" />
-          <h2 className="text-xl font-bold text-white">MBI (Burnout)</h2>
-        </div>
-        
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardContent className="pt-6">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead>
-                  <tr className="border-b border-zinc-700 text-zinc-500">
-                    <th className="p-2">Escala</th>
-                    <th className="p-2 text-center w-24">Inicio</th>
-                    <th className="p-2 text-center w-24">Mitad</th>
-                    <th className="p-2 text-center w-24">Final</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {['Agotamiento Emocional', 'DespersonalizaciÃƒÂ³n', 'RealizaciÃƒÂ³n Personal*'].map((dim, idx) => {
-                    const keys = ['ae', 'dp', 'rp'][idx];
-                    return (
-                      <tr key={dim} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
-                        <td className="p-2 font-medium text-zinc-300">{dim} {idx===2 && <span className="text-xs text-zinc-500">(Invertida)</span>}</td>
-                        {(['pre', 'mid', 'post'] as Moment[]).map((m) => (
-                          <td key={m} className="p-2">
-                            <NumInput 
-                              val={mbi[m][keys]} 
-                              max={54} // Max aproximado dependiendo items
-                              onChange={(v: number) => setMbi(prev => ({ ...prev, [m]: { ...prev[m], [keys]: v } }))} 
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-        <MBIChart data={mbi} />
-      </section>
-
-      {/* --- DASS SECTION --- */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
-          <Activity className="text-blue-400" />
-          <h2 className="text-xl font-bold text-white">DASS-21</h2>
-        </div>
-        
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardContent className="pt-6">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead>
-                  <tr className="border-b border-zinc-700 text-zinc-500">
-                    <th className="p-2">Subescala</th>
-                    <th className="p-2 text-center w-24">Inicio</th>
-                    <th className="p-2 text-center w-24">Mitad</th>
-                    <th className="p-2 text-center w-24">Final</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {['DepresiÃƒÂ³n', 'Ansiedad', 'EstrÃƒÂ©s'].map((dim, idx) => {
-                    const keys = ['d', 'a', 's'][idx];
-                    return (
-                      <tr key={dim} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
-                        <td className="p-2 font-medium text-zinc-300">{dim}</td>
-                        {(['pre', 'mid', 'post'] as Moment[]).map((m) => (
-                          <td key={m} className="p-2">
-                            <NumInput 
-                              val={dass[m][keys]} 
-                              max={42} 
-                              onChange={(v: number) => setDass(prev => ({ ...prev, [m]: { ...prev[m], [keys]: v } }))} 
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-        <DASSChart data={dass} />
-      </section>
-
-      <div className="sticky bottom-4 flex justify-end pt-4">
-        <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg px-8 py-6 text-lg">
-          {saving ? 'Guardando...' : <><Save className="mr-2" /> Guardar Cambios</>}
-        </Button>
-      </div>
     </div>
   );
-}
-
-// --- COMPONENTES DE GRÃƒÂFICAS ---
-
-function PCQChart({ data }: { data: any }) {
-  const chartData = [
-    { name: 'Autoeficacia', Pre: data.pre.se, Mid: data.mid.se, Post: data.post.se },
-    { name: 'Esperanza', Pre: data.pre.h, Mid: data.mid.h, Post: data.post.h },
-    { name: 'Resiliencia', Pre: data.pre.r, Mid: data.mid.r, Post: data.post.r },
-    { name: 'Optimismo', Pre: data.pre.o, Mid: data.mid.o, Post: data.post.o },
-  ].filter(d => d.Pre !== undefined || d.Mid !== undefined || d.Post !== undefined);
-
-  if (chartData.length === 0) return null;
-
-  return (
-    <Card className="bg-zinc-900 border-zinc-800 p-4">
-      <h3 className="text-sm font-medium text-zinc-400 mb-4">EvoluciÃƒÂ³n PCQ (Meta: Tendencia Alza)</h3>
-      <div className="h-[300px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-            <XAxis dataKey="name" stroke="#888" fontSize={12} />
-            <YAxis domain={[0, 7]} stroke="#888" fontSize={12} />
-            <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }} />
-            <Legend />
-            <ReferenceLine y={4.5} stroke="#ca8a04" strokeDasharray="3 3" label={{ position: 'right', value: 'Medio', fill: '#ca8a04', fontSize: 10 }} />
-            <Bar dataKey="Pre" fill="#64748b" name="Inicio" />
-            <Bar dataKey="Mid" fill="#3b82f6" name="Mitad" />
-            <Bar dataKey="Post" fill="#22c55e" name="Final" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </Card>
-  );
-}
-
-function MBIChart({ data }: { data: any }) {
-  const chartData = [
-    { name: 'Agotamiento', Pre: data.pre.ae, Mid: data.mid.ae, Post: data.post.ae },
-    { name: 'Despers.', Pre: data.pre.dp, Mid: data.mid.dp, Post: data.post.dp },
-    { name: 'Realizac.', Pre: data.pre.rp, Mid: data.mid.rp, Post: data.post.rp },
-  ].filter(d => d.Pre !== undefined || d.Mid !== undefined || d.Post !== undefined);
-
-  if (chartData.length === 0) return null;
-
-  return (
-    <Card className="bg-zinc-900 border-zinc-800 p-4">
-      <h3 className="text-sm font-medium text-zinc-400 mb-4">EvoluciÃƒÂ³n MBI (Ã¢Å¡Â Ã¯Â¸Â Agotamiento/Despers. deben bajar, Realizac. subir)</h3>
-      <div className="h-[300px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-            <XAxis dataKey="name" stroke="#888" fontSize={12} />
-            <YAxis stroke="#888" fontSize={12} />
-            <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }} />
-            <Legend />
-            <Bar dataKey="Pre" fill="#64748b" name="Inicio" />
-            <Bar dataKey="Mid" fill="#3b82f6" name="Mitad" />
-            <Bar dataKey="Post" fill="#22c55e" name="Final" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </Card>
-  );
-}
-
-function DASSChart({ data }: { data: any }) {
-  const chartData = [
-    { name: 'DepresiÃƒÂ³n', Pre: data.pre.d, Mid: data.mid.d, Post: data.post.d },
-    { name: 'Ansiedad', Pre: data.pre.a, Mid: data.mid.a, Post: data.post.a },
-    { name: 'EstrÃƒÂ©s', Pre: data.pre.s, Mid: data.mid.s, Post: data.post.s },
-  ].filter(d => d.Pre !== undefined || d.Mid !== undefined || d.Post !== undefined);
-
-  if (chartData.length === 0) return null;
-
-  return (
-    <Card className="bg-zinc-900 border-zinc-800 p-4">
-      <h3 className="text-sm font-medium text-zinc-400 mb-4">EvoluciÃƒÂ³n DASS-21 (Meta: Tendencia Baja)</h3>
-      <div className="h-[300px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-            <XAxis dataKey="name" stroke="#888" fontSize={12} />
-            <YAxis stroke="#888" fontSize={12} />
-            <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }} />
-            <Legend />
-            <ReferenceLine y={10} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'right', value: 'Umbral Alerta', fill: '#ef4444', fontSize: 10 }} />
-            <Bar dataKey="Pre" fill="#64748b" name="Inicio" />
-            <Bar dataKey="Mid" fill="#3b82f6" name="Mitad" />
-            <Bar dataKey="Post" fill="#22c55e" name="Final" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </Card>
-  );
-}
 }

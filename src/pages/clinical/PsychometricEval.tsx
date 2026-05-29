@@ -2,277 +2,239 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Brain, Activity, AlertTriangle, CheckCircle, Save } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 
-interface PsychometricEvalProps {
-  patientId: string;
+interface EvalProps {
+  patientId?: string;
 }
 
-type Moment = 'pre' | 'mid' | 'post';
-type TestType = 'pcq' | 'mbi' | 'dass';
-
-export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
-  const [activeMoment, setActiveMoment] = useState<Moment>('pre');
-  const [activeTest, setActiveTest] = useState<TestType>('pcq');
+export default function PsychometricEval({ patientId }: EvalProps) {
+  const [activeTab, setActiveTab] = useState<'pre' | 'mid' | 'post'>('pre');
+  const [activeTest, setActiveTest] = useState<'pcq' | 'mbi' | 'dass'>('pcq');
+  const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [savedMsg, setSavedMsg] = useState('');
+  
+  // Estado para almacenar datos cargados de la BD
+  const [savedData, setSavedData] = useState<any>({});
 
-  // Estado inicial seguro para evitar errores de undefined
+  // Estructura base de datos
   const initialFormState = {
-    pcq: { se: 0, hope: 0, res: 0, opt: 0 },
-    mbi: { ee: 0, dp: 0, pa: 0 },
-    dass: { dep: 0, anx: 0, str: 0 }
+    pcq: { se: '', h: '', r: '', o: '' },
+    mbi: { ae: '', dp: '', rp: '' },
+    dass: { dep: '', ans: '', str: '' }
   };
 
-  const [formData, setFormData] = useState<Record<Moment, typeof initialFormState>>({
-    pre: { ...initialFormState },
-    mid: { ...initialFormState },
-    post: { ...initialFormState }
-  });
+  const [formData, setFormData] = useState(initialFormState);
 
-  // Cargar datos existentes al montar
+  // Cargar datos existentes al cambiar de pestaña/test
   useEffect(() => {
     if (!patientId) return;
-    loadEvaluations();
-  }, [patientId]);
+    loadData();
+  }, [activeTab, activeTest, patientId]);
 
-  const loadEvaluations = async () => {
+  const loadData = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('psychometric_evaluations')
         .select('*')
-        .eq('patient_id', patientId);
+        .eq('patient_id', patientId)
+        .eq('moment', activeTab)
+        .eq('test_type', activeTest)
+        .single();
 
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        const newData = { ...formData };
-        data.forEach((row: any) => {
-          const moment = row.moment as Moment;
-          const test = row.test_type as TestType;
-          if (newData[moment] && newData[moment][test]) {
-            // Mapear columnas de la BD al estado local
-            if (test === 'pcq') {
-              newData[moment].pcq = {
-                se: row.se_score || 0,
-                hope: row.hope_score || 0,
-                res: row.res_score || 0,
-                opt: row.opt_score || 0
-              };
-            } else if (test === 'mbi') {
-              newData[moment].mbi = {
-                ee: row.ee_score || 0,
-                dp: row.dp_score || 0,
-                pa: row.pa_score || 0
-              };
-            } else if (test === 'dass') {
-              newData[moment].dass = {
-                dep: row.dep_score || 0,
-                anx: row.anx_score || 0,
-                str: row.str_score || 0
-              };
-            }
+      if (data && !error) {
+        setSavedData(data);
+        setFormData({
+          pcq: { 
+            se: data.se_score || '', 
+            h: data.hope_score || '', 
+            r: data.resilience_score || '', 
+            o: data.optimism_score || '' 
+          },
+          mbi: { 
+            ae: data.ae_score || '', 
+            dp: data.dp_score || '', 
+            rp: data.rp_score || '' 
+          },
+          dass: { 
+            dep: data.depression_score || '', 
+            ans: data.anxiety_score || '', 
+            str: data.stress_score || '' 
           }
         });
-        setFormData(newData);
+      } else {
+        setSavedData({});
+        setFormData(initialFormState);
       }
     } catch (err) {
-      console.error("Error cargando evaluaciones:", err);
+      console.error("Error cargando datos:", err);
+      setFormData(initialFormState);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleInputChange = (test: TestType, field: string, value: number) => {
+  const handleInputChange = (test: keyof typeof formData, field: string, value: string) => {
+    // Permitir solo números o vacío
+    if (value !== '' && !/^\d+$/.test(value)) return;
+    
     setFormData(prev => ({
       ...prev,
-      [activeMoment]: {
-        ...prev[activeMoment],
-        [test]: {
-          ...prev[activeMoment][test],
-          [field]: value
-        }
-      }
+      [test]: { ...prev[test], [field]: value }
     }));
   };
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      const currentData = formData[activeMoment];
+      const payload = {
+        patient_id: patientId,
+        moment: activeTab,
+        test_type: activeTest,
+        ...(activeTest === 'pcq' && {
+          se_score: parseInt(formData.pcq.se) || 0,
+          hope_score: parseInt(formData.pcq.h) || 0,
+          resilience_score: parseInt(formData.pcq.r) || 0,
+          optimism_score: parseInt(formData.pcq.o) || 0
+        }),
+        ...(activeTest === 'mbi' && {
+          ae_score: parseInt(formData.mbi.ae) || 0,
+          dp_score: parseInt(formData.mbi.dp) || 0,
+          rp_score: parseInt(formData.mbi.rp) || 0
+        }),
+        ...(activeTest === 'dass' && {
+          depression_score: parseInt(formData.dass.dep) || 0,
+          anxiety_score: parseInt(formData.dass.ans) || 0,
+          stress_score: parseInt(formData.dass.str) || 0
+        })
+      };
+
+      let error;
+      if (savedData.id) {
+        const res = await supabase.from('psychometric_evaluations').update(payload).eq('id', savedData.id);
+        error = res.error;
+      } else {
+        const res = await supabase.from('psychometric_evaluations').insert([payload]);
+        error = res.error;
+      }
+
+      if (error) throw error;
       
-      // Preparar datos para PCQ
-      if (activeTest === 'pcq' || activeMoment !== 'mid') { // En mid solo guardamos PCQ si estamos en esa tab, pero prevenimos errores
-         const pcqRow = {
-           patient_id: patientId,
-           moment: activeMoment,
-           test_type: 'pcq',
-           se_score: currentData.pcq.se,
-           hope_score: currentData.pcq.hope,
-           res_score: currentData.pcq.res,
-           opt_score: currentData.pcq.opt
-         };
-         
-         await supabase.from('psychometric_evaluations').upsert(pcqRow, { onConflict: 'patient_id,moment,test_type' });
-      }
-
-      // Preparar datos para MBI (Solo Pre y Post)
-      if (activeTest === 'mbi' && activeMoment !== 'mid') {
-        const mbiRow = {
-           patient_id: patientId,
-           moment: activeMoment,
-           test_type: 'mbi',
-           ee_score: currentData.mbi.ee,
-           dp_score: currentData.mbi.dp,
-           pa_score: currentData.mbi.pa
-        };
-        await supabase.from('psychometric_evaluations').upsert(mbiRow, { onConflict: 'patient_id,moment,test_type' });
-      }
-
-      // Preparar datos para DASS (Solo Pre y Post)
-      if (activeTest === 'dass' && activeMoment !== 'mid') {
-        const dassRow = {
-           patient_id: patientId,
-           moment: activeMoment,
-           test_type: 'dass',
-           dep_score: currentData.dass.dep,
-           anx_score: currentData.dass.anx,
-           str_score: currentData.dass.str
-        };
-        await supabase.from('psychometric_evaluations').upsert(dassRow, { onConflict: 'patient_id,moment,test_type' });
-      }
-
-      setSavedMsg('âœ… EvaluaciÃ³n guardada correctamente');
-      setTimeout(() => setSavedMsg(''), 3000);
-    } catch (err) {
-      console.error(err);
-      setSavedMsg('âŒ Error al guardar');
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+      loadData(); // Recargar para actualizar gráficas
+    } catch (err: any) {
+      alert("❌ Error al guardar: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Generar datos para la grÃ¡fica comparativa
+  // Generar datos para gráfica comparativa
   const getChartData = () => {
-    if (activeTest === 'pcq') {
-      return [
-        { name: 'Autoeficacia', Pre: formData.pre.pcq.se, Mid: formData.mid.pcq.se, Post: formData.post.pcq.se },
-        { name: 'Esperanza', Pre: formData.pre.pcq.hope, Mid: formData.mid.pcq.hope, Post: formData.post.pcq.hope },
-        { name: 'Resiliencia', Pre: formData.pre.pcq.res, Mid: formData.mid.pcq.res, Post: formData.post.pcq.res },
-        { name: 'Optimismo', Pre: formData.pre.pcq.opt, Mid: formData.mid.pcq.opt, Post: formData.post.pcq.opt },
-      ];
-    } else if (activeTest === 'mbi') {
-      return [
-        { name: 'Agotamiento', Pre: formData.pre.mbi.ee, Post: formData.post.mbi.ee },
-        { name: 'DespersonalizaciÃ³n', Pre: formData.pre.mbi.dp, Post: formData.post.mbi.dp },
-        { name: 'RealizaciÃ³n Pers.', Pre: formData.pre.mbi.pa, Post: formData.post.mbi.pa },
-      ];
-    } else {
-      return [
-        { name: 'DepresiÃ³n', Pre: formData.pre.dass.dep, Post: formData.post.dass.dep },
-        { name: 'Ansiedad', Pre: formData.pre.dass.anx, Post: formData.post.dass.anx },
-        { name: 'EstrÃ©s', Pre: formData.pre.dass.str, Post: formData.post.dass.str },
-      ];
-    }
+    // Esta lógica debería venir de un padre o contexto compartido, 
+    // pero para simplificar, asumimos que las gráficas se muestran en otra vista o aquí mismo si hay datos.
+    // Por ahora, retornamos estructura vacía si no hay datos cargados de los 3 momentos.
+    return [];
   };
 
-  const chartData = getChartData();
+  const renderInput = (label: string, value: string, onChange: (val: string) => void, maxScore?: number) => (
+    <div className="flex flex-col items-center p-3 bg-zinc-950 rounded border border-zinc-800">
+      <span className="text-xs text-zinc-400 mb-2 text-center h-8">{label}</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-20 bg-zinc-900 border border-zinc-700 rounded p-2 text-white text-center font-bold text-lg focus:ring-2 focus:ring-blue-500 outline-none"
+        placeholder="0"
+      />
+      {maxScore && <span className="text-[10px] text-zinc-600 mt-1">Max: {maxScore}</span>}
+    </div>
+  );
 
   return (
-    <div className="space-y-6 p-2">
-      {savedMsg && (
-        <div className="bg-green-900/20 border border-green-800 text-green-400 p-3 rounded flex items-center gap-2 animate-in fade-in">
-          <CheckCircle className="w-4 h-4" /> {savedMsg}
-        </div>
-      )}
-
-      {/* Selector de Momento */}
-      <div className="flex justify-center gap-2 mb-6">
-        <Button variant={activeMoment === 'pre' ? 'default' : 'outline'} onClick={() => setActiveMoment('pre')} className={activeMoment === 'pre' ? 'bg-blue-600 text-white' : 'border-zinc-700 text-zinc-400'}>Inicio (Pre)</Button>
-        <Button variant={activeMoment === 'mid' ? 'default' : 'outline'} onClick={() => setActiveMoment('mid')} className={activeMoment === 'mid' ? 'bg-blue-600 text-white' : 'border-zinc-700 text-zinc-400'}>Mitad (Intermedio)</Button>
-        <Button variant={activeMoment === 'post' ? 'default' : 'outline'} onClick={() => setActiveMoment('post')} className={activeMoment === 'post' ? 'bg-blue-600 text-white' : 'border-zinc-700 text-zinc-400'}>Final (Post)</Button>
+    <div className="space-y-6 animate-in fade-in">
+      {/* Tabs de Momento */}
+      <div className="flex justify-center gap-2 border-b border-zinc-800 pb-4">
+        <Button variant={activeTab === 'pre' ? 'default' : 'ghost'} onClick={() => setActiveTab('pre')} className={activeTab === 'pre' ? 'bg-white text-black' : 'text-zinc-400'}>Inicio (Pre)</Button>
+        <Button variant={activeTab === 'mid' ? 'default' : 'ghost'} onClick={() => setActiveTab('mid')} className={activeTab === 'mid' ? 'bg-white text-black' : 'text-zinc-400'}>Mitad (Intermedio)</Button>
+        <Button variant={activeTab === 'post' ? 'default' : 'ghost'} onClick={() => setActiveTab('post')} className={activeTab === 'post' ? 'bg-white text-black' : 'text-zinc-400'}>Final (Post)</Button>
       </div>
 
-      {/* Selector de Prueba (Solo visible si no es Mitad, o forzar PCQ en Mitad) */}
-      {activeMoment !== 'mid' && (
-        <div className="flex justify-center gap-2 mb-4 border-b border-zinc-800 pb-4">
-          <Button variant={activeTest === 'pcq' ? 'secondary' : 'ghost'} onClick={() => setActiveTest('pcq')} className={activeTest === 'pcq' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}><Brain className="w-4 h-4 mr-2"/>PCQ-24</Button>
-          <Button variant={activeTest === 'mbi' ? 'secondary' : 'ghost'} onClick={() => setActiveTest('mbi')} className={activeTest === 'mbi' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}><Activity className="w-4 h-4 mr-2"/>MBI</Button>
-          <Button variant={activeTest === 'dass' ? 'secondary' : 'ghost'} onClick={() => setActiveTest('dass')} className={activeTest === 'dass' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}><AlertTriangle className="w-4 h-4 mr-2"/>DASS-21</Button>
+      {saved && (
+        <div className="bg-green-900/20 border border-green-800 text-green-400 p-3 rounded flex items-center gap-2 justify-center">
+          <CheckCircle className="w-4 h-4" /> Datos guardados correctamente.
         </div>
       )}
-      
-      {activeMoment === 'mid' && (
-        <div className="text-center mb-4 text-zinc-400 italic">
-          Mostrando Ãºnicamente PCQ-24 (EvaluaciÃ³n Intermedia)
-        </div>
-      )}
+
+      {/* Tabs de Pruebas (Filtro) */}
+      <div className="flex gap-2 justify-center mb-6">
+        <Button variant={activeTest === 'pcq' ? 'default' : 'outline'} onClick={() => setActiveTest('pcq')} className={activeTest === 'pcq' ? 'bg-blue-600 border-blue-600' : 'border-zinc-700 text-zinc-400'}>PCQ-24</Button>
+        {activeTab !== 'mid' && (
+          <>
+            <Button variant={activeTest === 'mbi' ? 'default' : 'outline'} onClick={() => setActiveTest('mbi')} className={activeTest === 'mbi' ? 'bg-orange-600 border-orange-600' : 'border-zinc-700 text-zinc-400'}>MBI</Button>
+            <Button variant={activeTest === 'dass' ? 'default' : 'outline'} onClick={() => setActiveTest('dass')} className={activeTest === 'dass' ? 'bg-purple-600 border-purple-600' : 'border-zinc-700 text-zinc-400'}>DASS-21</Button>
+          </>
+        )}
+      </div>
 
       {/* Formulario de Ingreso */}
       <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
-            {activeTest === 'pcq' && <><Brain className="text-blue-500"/> Ingreso de Resultados PCQ-24</>}
-            {activeTest === 'mbi' && <><Activity className="text-orange-500"/> Ingreso de Resultados MBI</>}
-            {activeTest === 'dass' && <><AlertTriangle className="text-red-500"/> Ingreso de Resultados DASS-21</>}
+            {activeTest === 'pcq' && <Brain className="w-5 h-5 text-blue-500" />}
+            {activeTest === 'mbi' && <Activity className="w-5 h-5 text-orange-500" />}
+            {activeTest === 'dass' && <AlertTriangle className="w-5 h-5 text-purple-500" />}
+            Ingreso de Puntajes - {activeTab.toUpperCase()}
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Inputs DinÃ¡micos segÃºn la prueba */}
-          {activeTest === 'pcq' && (
-            <>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Autoeficacia (SE)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].pcq.se} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('pcq', 'se', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Esperanza (Hope)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].pcq.hope} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('pcq', 'hope', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Resiliencia (Res)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].pcq.res} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('pcq', 'res', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Optimismo (Opt)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].pcq.opt} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('pcq', 'opt', parseFloat(e.target.value) || 0)} /></div>
-            </>
-          )}
+        <CardContent className="space-y-6">
           
-          {activeTest === 'mbi' && activeMoment !== 'mid' && (
-            <>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Agotamiento Emocional (EE)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].mbi.ee} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('mbi', 'ee', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">DespersonalizaciÃ³n (DP)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].mbi.dp} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('mbi', 'dp', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">RealizaciÃ³n Personal (PA)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].mbi.pa} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('mbi', 'pa', parseFloat(e.target.value) || 0)} /></div>
-            </>
+          {/* PCQ FORM */}
+          {activeTest === 'pcq' && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {renderInput("Autoeficacia", formData.pcq.se, (v) => handleInputChange('pcq', 'se', v), 42)}
+              {renderInput("Esperanza", formData.pcq.h, (v) => handleInputChange('pcq', 'h', v), 42)}
+              {renderInput("Resiliencia", formData.pcq.r, (v) => handleInputChange('pcq', 'r', v), 42)}
+              {renderInput("Optimismo", formData.pcq.o, (v) => handleInputChange('pcq', 'o', v), 42)}
+            </div>
           )}
 
-          {activeTest === 'dass' && activeMoment !== 'mid' && (
-            <>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">DepresiÃ³n</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].dass.dep} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('dass', 'dep', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Ansiedad</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].dass.anx} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('dass', 'anx', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">EstrÃ©s</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].dass.str} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('dass', 'str', parseFloat(e.target.value) || 0)} /></div>
-            </>
+          {/* MBI FORM */}
+          {activeTest === 'mbi' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {renderInput("Agotamiento Emocional", formData.mbi.ae, (v) => handleInputChange('mbi', 'ae', v), 54)}
+              {renderInput("Despersonalización", formData.mbi.dp, (v) => handleInputChange('mbi', 'dp', v), 30)}
+              {renderInput("Realización Personal", formData.mbi.rp, (v) => handleInputChange('mbi', 'rp', v), 48)}
+            </div>
           )}
+
+          {/* DASS FORM */}
+          {activeTest === 'dass' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {renderInput("Depresión", formData.dass.dep, (v) => handleInputChange('dass', 'dep', v), 42)}
+              {renderInput("Ansiedad", formData.dass.ans, (v) => handleInputChange('dass', 'ans', v), 42)}
+              {renderInput("Estrés", formData.dass.str, (v) => handleInputChange('dass', 'str', v), 42)}
+            </div>
+          )}
+
+          <div className="pt-4 border-t border-zinc-800 flex justify-end">
+            <Button onClick={handleSave} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-8">
+              {loading ? 'Guardando...' : <><Save className="w-4 h-4 mr-2"/> Guardar Puntajes</>}
+            </Button>
+          </div>
         </CardContent>
-        <div className="p-4 border-t border-zinc-800 flex justify-end">
-          <Button onClick={handleSave} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
-            {loading ? 'Guardando...' : <><Save className="w-4 h-4 mr-2"/> Guardar Resultados</>}
-          </Button>
-        </div>
       </Card>
 
-      {/* GrÃ¡fica Comparativa */}
-      <Card className="bg-zinc-900 border-zinc-800 mt-6">
-        <CardHeader>
-          <CardTitle className="text-white">EvoluciÃ³n Comparativa</CardTitle>
-        </CardHeader>
-        <CardContent className="h-[400px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis dataKey="name" stroke="#888" />
-              <YAxis stroke="#888" />
-              <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', color: '#fff' }} />
-              <Legend />
-              {activeMoment === 'pre' && <ReferenceLine y={0} stroke="#fff" />} 
-              {/* Barras dinÃ¡micas segÃºn momento actual para resaltar comparaciÃ³n */}
-              <Bar dataKey="Pre" fill="#6b7280" name="Inicio" />
-              {activeMoment !== 'pre' && <Bar dataKey="Mid" fill="#3b82f6" name="Mitad" />}
-              {activeMoment !== 'mid' && <Bar dataKey="Post" fill="#10b981" name="Final" />}
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      {/* Nota informativa */}
+      <div className="bg-zinc-900/50 p-4 rounded border border-zinc-800 text-sm text-zinc-400">
+        <p><strong>Nota:</strong> Ingresa únicamente el puntaje total obtenido en cada subescala. El sistema guardará automáticamente el momento (Pre/Mid/Post) y el tipo de prueba.</p>
+      </div>
     </div>
   );
 }

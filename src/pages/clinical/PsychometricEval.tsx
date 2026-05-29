@@ -15,7 +15,6 @@ type Moment = 'pre' | 'mid' | 'post';
 interface EvalProps { patientId: string; }
 
 export default function PsychometricEval({ patientId }: EvalProps) {
-  const { patientId } = useParams<{ patientId: string }>();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -72,13 +71,13 @@ export default function PsychometricEval({ patientId }: EvalProps) {
     if (error) {
       alert("Error al guardar: " + error.message);
     } else {
-      setSuccessMsg("âœ… Evaluaciones guardadas correctamente.");
+      setSuccessMsg("Ã¢Å“â€¦ Evaluaciones guardadas correctamente.");
       setTimeout(() => setSuccessMsg(""), 3000);
     }
     setSaving(false);
   };
 
-  // Helper para inputs numÃ©ricos
+  // Helper para inputs numÃƒÂ©ricos
   const NumInput = ({ val, onChange, max }: any) => (
     <Input 
       type="number" 
@@ -105,18 +104,18 @@ export default function PsychometricEval({ patientId }: EvalProps) {
       <section className="space-y-4">
         <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
           <Activity className="text-purple-400" />
-          <h2 className="text-xl font-bold text-white">PCQ-24 (Capital PsicolÃ³gico)</h2>
+          <h2 className="text-xl font-bold text-white">PCQ-24 (Capital PsicolÃƒÂ³gico)</h2>
         </div>
         
         {/* Inputs PCQ */}
         <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader><CardTitle className="text-sm text-zinc-400">Ingrese Puntajes Promedio por DimensiÃ³n</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm text-zinc-400">Ingrese Puntajes Promedio por DimensiÃƒÂ³n</CardTitle></CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead>
                   <tr className="border-b border-zinc-700 text-zinc-500">
-                    <th className="p-2">DimensiÃ³n</th>
+                    <th className="p-2">DimensiÃƒÂ³n</th>
                     <th className="p-2 text-center w-24">Inicio (Pre)</th>
                     <th className="p-2 text-center w-24">Mitad (Mid)</th>
                     <th className="p-2 text-center w-24">Final (Post)</th>
@@ -146,7 +145,7 @@ export default function PsychometricEval({ patientId }: EvalProps) {
           </CardContent>
         </Card>
 
-        {/* GrÃ¡fica PCQ */}
+        {/* GrÃƒÂ¡fica PCQ */}
         <PCQChart data={pcq} />
       </section>
 
@@ -170,7 +169,7 @@ export default function PsychometricEval({ patientId }: EvalProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {['Agotamiento Emocional', 'DespersonalizaciÃ³n', 'RealizaciÃ³n Personal*'].map((dim, idx) => {
+                  {['Agotamiento Emocional', 'DespersonalizaciÃƒÂ³n', 'RealizaciÃƒÂ³n Personal*'].map((dim, idx) => {
                     const keys = ['ae', 'dp', 'rp'][idx];
                     return (
                       <tr key={dim} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
@@ -215,7 +214,7 @@ export default function PsychometricEval({ patientId }: EvalProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {['DepresiÃ³n', 'Ansiedad', 'EstrÃ©s'].map((dim, idx) => {
+                  {['DepresiÃƒÂ³n', 'Ansiedad', 'EstrÃƒÂ©s'].map((dim, idx) => {
                     const keys = ['d', 'a', 's'][idx];
                     return (
                       <tr key={dim} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
@@ -249,7 +248,7 @@ export default function PsychometricEval({ patientId }: EvalProps) {
   );
 }
 
-// --- COMPONENTES DE GRÃFICAS ---
+// --- COMPONENTES DE GRÃƒÂFICAS ---
 
 function PCQChart({ data }: { data: any }) {
   const chartData = [
@@ -263,7 +262,7 @@ function PCQChart({ data }: { data: any }) {
 
   return (
     <Card className="bg-zinc-900 border-zinc-800 p-4">
-      <h3 className="text-sm font-medium text-zinc-400 mb-4">EvoluciÃ³n PCQ (Meta: Tendencia Alza)</h3>
+      <h3 className="text-sm font-medium text-zinc-400 mb-4">EvoluciÃƒÂ³n PCQ (Meta: Tendencia Alza)</h3>
       <div className="h-[300px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData}>
@@ -294,7 +293,7 @@ function MBIChart({ data }: { data: any }) {
 
   return (
     <Card className="bg-zinc-900 border-zinc-800 p-4">
-      <h3 className="text-sm font-medium text-zinc-400 mb-4">EvoluciÃ³n MBI (âš ï¸ Agotamiento/Despers. deben bajar, Realizac. subir)</h3>
+      <h3 className="text-sm font-medium text-zinc-400 mb-4">EvoluciÃƒÂ³n MBI (Ã¢Å¡Â Ã¯Â¸Â Agotamiento/Despers. deben bajar, Realizac. subir)</h3>
       <div className="h-[300px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData}>
@@ -315,16 +314,16 @@ function MBIChart({ data }: { data: any }) {
 
 function DASSChart({ data }: { data: any }) {
   const chartData = [
-    { name: 'DepresiÃ³n', Pre: data.pre.d, Mid: data.mid.d, Post: data.post.d },
+    { name: 'DepresiÃƒÂ³n', Pre: data.pre.d, Mid: data.mid.d, Post: data.post.d },
     { name: 'Ansiedad', Pre: data.pre.a, Mid: data.mid.a, Post: data.post.a },
-    { name: 'EstrÃ©s', Pre: data.pre.s, Mid: data.mid.s, Post: data.post.s },
+    { name: 'EstrÃƒÂ©s', Pre: data.pre.s, Mid: data.mid.s, Post: data.post.s },
   ].filter(d => d.Pre !== undefined || d.Mid !== undefined || d.Post !== undefined);
 
   if (chartData.length === 0) return null;
 
   return (
     <Card className="bg-zinc-900 border-zinc-800 p-4">
-      <h3 className="text-sm font-medium text-zinc-400 mb-4">EvoluciÃ³n DASS-21 (Meta: Tendencia Baja)</h3>
+      <h3 className="text-sm font-medium text-zinc-400 mb-4">EvoluciÃƒÂ³n DASS-21 (Meta: Tendencia Baja)</h3>
       <div className="h-[300px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData}>

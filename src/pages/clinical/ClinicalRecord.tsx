@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { ArrowLeft, User, Phone, Mail, Calendar, Activity, FileText, TrendingUp, AlertTriangle } from 'lucide-react';
+import {  ArrowLeft, User, Phone, Mail, Calendar, Activity, FileText, TrendingUp, AlertTriangle , AlertCircle, Calendar, Paperclip, History } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -12,10 +12,16 @@ export default function ClinicalRecord() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
   const [patient, setPatient] = useState<any>(null);
+    const [statusHistory, setStatusHistory] = useState<any[]>([]);
+  const [newStatus, setNewStatus] = useState('active');
+  const [statusReason, setStatusReason] = useState('');
+  const [statusDate, setStatusDate] = useState('');
+  const [statusEvidence, setStatusEvidence] = useState('');
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [rolLogs, setRolLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Estado para pestaÃ±as principales
+  // Estado para pestaÃƒÂ±as principales
   const [activeTab, setActiveTab] = useState<'data' | 'rol' | 'eval'>('data');
 
   // Estados para formulario ROL
@@ -60,10 +66,10 @@ export default function ClinicalRecord() {
     if (!patientId) return;
     setSavingRol(true);
     
-    // Calcular sesiÃ³n siguiente
+    // Calcular sesiÃƒÂ³n siguiente
     const nextSession = (rolLogs.length > 0 ? Math.max(...rolLogs.map((l: any) => l.session_number || 0)) : 0) + 1;
     
-    // Mapeo de riesgo texto a nÃºmero
+    // Mapeo de riesgo texto a nÃƒÂºmero
     const riskMap: Record<string, number> = { 'low': 1, 'medium': 2, 'high': 3 };
     const riskNum = riskMap[newRisk] || 1;
 
@@ -80,18 +86,18 @@ export default function ClinicalRecord() {
 
       if (error) throw error;
 
-      alert('âœ… ROL guardado correctamente');
+      alert('Ã¢Å“â€¦ ROL guardado correctamente');
       setCommentText('');
       setPlanText('');
-      fetchData(); // Recargar grÃ¡fica
+      fetchData(); // Recargar grÃƒÂ¡fica
     } catch (err: any) {
-      alert('âŒ Error: ' + err.message);
+      alert('Ã¢ÂÅ’ Error: ' + err.message);
     } finally {
       setSavingRol(false);
     }
   };
 
-  // Preparar datos para la grÃ¡fica (Compatibilidad Legacy)
+  // Preparar datos para la grÃƒÂ¡fica (Compatibilidad Legacy)
   const chartData = (rolLogs || []).map((log: any, index: number) => {
     const session = log.session_number ? parseInt(log.session_number) : index + 1;
     let riskVal = log.risk_numeric;
@@ -107,7 +113,7 @@ export default function ClinicalRecord() {
     return { session, risk: riskVal, level: log.risk_level };
   });
 
-  if (loading) return <div className="p-6 text-white">Cargando historia clÃ­nica...</div>;
+  if (loading) return <div className="p-6 text-white">Cargando historia clÃƒÂ­nica...</div>;
   if (!patient) return <div className="p-6 text-red-400">Paciente no encontrado.</div>;
 
   const getStatusColor = (status: string) => {
@@ -120,6 +126,52 @@ export default function ClinicalRecord() {
   };
 
   return (
+    const handleSaveStatus = async () => {
+    if (!user || !patientId) return;
+    setIsSavingStatus(true);
+    
+    try {
+      // 1. Actualizar el estado actual en la tabla patients
+      const { error: updateError } = await supabase
+        .from('patients')
+        .update({ status: newStatus })
+        .eq('id', patientId);
+      
+      if (updateError) throw updateError;
+
+      // 2. Registrar en el historial (logs)
+      const logData: any = {
+        patient_id: patientId,
+        status: newStatus,
+        reason: statusReason,
+        changed_by: user.id,
+        changed_at: new Date().toISOString(),
+      };
+
+      if (newStatus === 'deserter') logData.desertion_date = statusDate;
+      if (newStatus === 'inactive') logData.expected_return_date = statusDate;
+      if (statusEvidence) logData.evidence_url = statusEvidence;
+
+      const { error: logError } = await supabase.from('patient_status_logs').insert([logData]);
+      if (logError) throw logError;
+
+      alert("✅ Estado actualizado correctamente");
+      setStatusReason('');
+      setStatusDate('');
+      setStatusEvidence('');
+      fetchStatusHistory(); // Recargar historial
+      
+      // Actualizar el objeto patient localmente para reflejar el cambio inmediato en la UI
+      setPatient({ ...patient, status: newStatus });
+
+    } catch (err: any) {
+      console.error(err);
+      alert("❌ Error al guardar: " + (err.message || "Verifica la consola"));
+    } finally {
+      setIsSavingStatus(false);
+    }
+  };
+
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
@@ -140,21 +192,21 @@ export default function ClinicalRecord() {
         </div>
       </div>
 
-      {/* PestaÃ±as Principales */}
+      {/* PestaÃƒÂ±as Principales */}
       <div className="flex gap-2 border-b border-zinc-800">
-        <button onClick={() => setActiveTab('data')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'data' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>Datos ClÃ­nicos</button>
+        <button onClick={() => setActiveTab('data')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'data' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>Datos ClÃƒÂ­nicos</button>
         <button onClick={() => setActiveTab('rol')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'rol' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>ROL Semanal</button>
         <button onClick={() => setActiveTab('eval')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'eval' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>Evaluaciones</button>
       </div>
 
-      {/* Contenido DinÃ¡mico */}
+      {/* Contenido DinÃƒÂ¡mico */}
       {activeTab === 'eval' ? (
         <PsychometricEval patientId={patientId} />
       ) : activeTab === 'rol' ? (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
           {/* Formulario ROL */}
           <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader><CardTitle className="text-white flex items-center gap-2"><Activity className="w-5 h-5 text-purple-500"/> Registrar Nueva SesiÃ³n (SesiÃ³n {rolLogs.length + 1})</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-white flex items-center gap-2"><Activity className="w-5 h-5 text-purple-500"/> Registrar Nueva SesiÃƒÂ³n (SesiÃƒÂ³n {rolLogs.length + 1})</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -170,11 +222,11 @@ export default function ClinicalRecord() {
               {(newRisk === 'medium' || newRisk === 'high') && (
                 <div className="space-y-4 p-4 bg-zinc-950/50 rounded border border-zinc-800 animate-in fade-in">
                   <div>
-                    <label className="block text-sm text-zinc-400 mb-1">Comentarios (Â¿Por quÃ© este nivel?)</label>
+                    <label className="block text-sm text-zinc-400 mb-1">Comentarios (Ã‚Â¿Por quÃƒÂ© este nivel?)</label>
                     <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded p-2 h-20" placeholder="Describa los indicadores observados..." />
                   </div>
                   <div>
-                    <label className="block text-sm text-zinc-400 mb-1">Plan de AcciÃ³n</label>
+                    <label className="block text-sm text-zinc-400 mb-1">Plan de AcciÃƒÂ³n</label>
                     <textarea value={planText} onChange={(e) => setPlanText(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded p-2 h-20" placeholder="Estrategias para esta semana..." />
                   </div>
                 </div>
@@ -186,19 +238,19 @@ export default function ClinicalRecord() {
             </CardContent>
           </Card>
 
-          {/* GrÃ¡fica ROL */}
+          {/* GrÃƒÂ¡fica ROL */}
           <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader><CardTitle className="text-white flex items-center gap-2"><TrendingUp className="w-5 h-5 text-green-500"/> EvoluciÃ³n del Riesgo por SesiÃ³n</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-white flex items-center gap-2"><TrendingUp className="w-5 h-5 text-green-500"/> EvoluciÃƒÂ³n del Riesgo por SesiÃƒÂ³n</CardTitle></CardHeader>
             <CardContent className="h-[300px]">
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                    <XAxis dataKey="session" stroke="#999" label={{ value: 'SesiÃ³n', position: 'insideBottom', offset: -5 }} />
+                    <XAxis dataKey="session" stroke="#999" label={{ value: 'SesiÃƒÂ³n', position: 'insideBottom', offset: -5 }} />
                     <YAxis stroke="#999" domain={[0, 4]} ticks={[1, 2, 3]} label={{ value: 'Riesgo', angle: -90, position: 'insideLeft' }} />
                     <Tooltip 
                       contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }}
-                      labelFormatter={(val) => `SesiÃ³n ${val}`}
+                      labelFormatter={(val) => `SesiÃƒÂ³n ${val}`}
                       formatter={(val: number) => {
                         if (val === 1) return ['Bajo', 'Riesgo'];
                         if (val === 2) return ['Medio', 'Riesgo'];
@@ -206,18 +258,18 @@ export default function ClinicalRecord() {
                         return [val, 'Riesgo'];
                       }}
                     />
-                    <ReferenceLine y={1.5} stroke="#4ade80" strokeDasharray="3 3" label={{ value: 'LÃ­mite Bajo', fill: '#4ade80', fontSize: 12 }} />
-                    <ReferenceLine y={2.5} stroke="#fbbf24" strokeDasharray="3 3" label={{ value: 'LÃ­mite Medio', fill: '#fbbf24', fontSize: 12 }} />
+                    <ReferenceLine y={1.5} stroke="#4ade80" strokeDasharray="3 3" label={{ value: 'LÃƒÂ­mite Bajo', fill: '#4ade80', fontSize: 12 }} />
+                    <ReferenceLine y={2.5} stroke="#fbbf24" strokeDasharray="3 3" label={{ value: 'LÃƒÂ­mite Medio', fill: '#fbbf24', fontSize: 12 }} />
                     <Line type="monotone" dataKey="risk" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 6, fill: '#8b5cf6' }} activeDot={{ r: 8 }} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-zinc-500">Sin datos registrados aÃºn</div>
+                <div className="h-full flex items-center justify-center text-zinc-500">Sin datos registrados aÃƒÂºn</div>
               )}
             </CardContent>
           </Card>
 
-          {/* Tabla HistÃ³rica */}
+          {/* Tabla HistÃƒÂ³rica */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader><CardTitle className="text-white">Historial de Registros</CardTitle></CardHeader>
             <CardContent>
@@ -225,10 +277,10 @@ export default function ClinicalRecord() {
                 <table className="w-full text-sm text-left text-zinc-400">
                   <thead className="text-xs uppercase bg-zinc-950 text-zinc-500">
                     <tr>
-                      <th className="px-4 py-3">SesiÃ³n</th>
+                      <th className="px-4 py-3">SesiÃƒÂ³n</th>
                       <th className="px-4 py-3">Riesgo</th>
                       <th className="px-4 py-3">Comentarios</th>
-                      <th className="px-4 py-3">Plan de AcciÃ³n</th>
+                      <th className="px-4 py-3">Plan de AcciÃƒÂ³n</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -251,14 +303,14 @@ export default function ClinicalRecord() {
           </Card>
         </div>
       ) : (
-        /* PestaÃ±a Datos ClÃ­nicos */
+        /* PestaÃƒÂ±a Datos ClÃƒÂ­nicos */
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
           <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
                   <CardTitle className="text-xl text-white flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-blue-500" /> InformaciÃ³n Financiera
+                    <FileText className="w-5 h-5 text-blue-500" /> InformaciÃƒÂ³n Financiera
                   </CardTitle>
                 </div>
               </div>

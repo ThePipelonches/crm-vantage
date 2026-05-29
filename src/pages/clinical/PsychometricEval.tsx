@@ -1,82 +1,62 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, ReferenceLine 
-} from 'recharts';
-import { Save, Activity, Brain, AlertTriangle } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { CheckCircle, AlertCircle } from 'lucide-react';
 
-interface PsychometricEvalProps {
-  patientId: string;
-}
-
-// ConfiguraciÃ³n de escalas y subescalas
-const TEST_CONFIG: any = {
-  pcq: {
-    label: 'PCQ-24 (Capital PsicolÃ³gico)',
-    icon: Brain,
-    scales: {
-      self_efficacy: 'Autoeficacia',
-      hope: 'Esperanza',
-      resilience: 'Resiliencia',
-      optimism: 'Optimismo'
-    },
-    maxScore: 7 // Escala 1-7
-  },
-  mbi: {
-    label: 'MBI (Burnout)',
-    icon: Activity,
-    scales: {
-      emotional_exhaustion: 'Agotamiento Emocional',
-      depersonalization: 'DespersonalizaciÃ³n',
-      personal_accomplishment: 'RealizaciÃ³n Personal'
-    },
-    maxScore: 6 // Escala 0-6 (suma varÃ­a, pero referencia visual Ãºtil)
-  },
-  dass: {
-    label: 'DASS-21',
-    icon: AlertTriangle,
-    scales: {
-      depression: 'DepresiÃ³n',
-      anxiety: 'Ansiedad',
-      stress: 'EstrÃ©s'
-    },
-    maxScore: 42 // Escala 0-3 * 2 * 7 items aprox (referencia visual)
-  }
+// Configuración de escalas
+const SCALES = {
+  PCQ: [
+    { key: 'self_efficacy', label: 'Autoeficacia' },
+    { key: 'hope', label: 'Esperanza' },
+    { key: 'resilience', label: 'Resiliencia' },
+    { key: 'optimism', label: 'Optimismo' }
+  ],
+  MBI: [
+    { key: 'emotional_exhaustion', label: 'Agotamiento Emocional' },
+    { key: 'depersonalization', label: 'Despersonalización' },
+    { key: 'personal_accomplishment', label: 'Realización Personal' }
+  ],
+  DASS: [
+    { key: 'depression', label: 'Depresión' },
+    { key: 'anxiety', label: 'Ansiedad' },
+    { key: 'stress', label: 'Estrés' }
+  ]
 };
 
-export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
+export default function PsychometricEval() {
+  const { patientId } = useParams<{ patientId: string }>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   
-  // Estados de Filtros
-  const [selectedTest, setSelectedTest] = useState<'pcq' | 'mbi' | 'dass'>('pcq');
-  const [selectedScale, setSelectedScale] = useState<string>('');
-
-  // Estados de Datos (Inputs)
-  // Estructura: { pre: { scale: value }, mid: { scale: value }, post: { scale: value } }
-  const [scores, setScores] = useState<any>({
-    pre: {},
-    mid: {},
-    post: {}
+  // Estado seguro inicializado en 0 o null
+  const [formData, setFormData] = useState({
+    pre: { PCQ: {}, MBI: {}, DASS: {} },
+    mid: { PCQ: {} }, // Solo PCQ en mitad
+    post: { PCQ: {}, MBI: {}, DASS: {} }
   });
 
-  // Cargar datos al montar o cambiar paciente
+  const [selectedTest, setSelectedTest] = useState<'PCQ' | 'MBI' | 'DASS'>('PCQ');
+  const [selectedScale, setSelectedScale] = useState<string>('self_efficacy');
+
+  // Cargar datos existentes
   useEffect(() => {
-    if (patientId) fetchScores();
+    if (!patientId) return;
+    loadResults();
   }, [patientId]);
 
-  // Resetear subescala cuando cambia la prueba
+  // Actualizar escala seleccionada cuando cambia el test
   useEffect(() => {
-    const firstScale = Object.keys(TEST_CONFIG[selectedTest].scales)[0];
-    setSelectedScale(firstScale);
+    if (SCALES[selectedTest] && SCALES[selectedTest].length > 0) {
+      setSelectedScale(SCALES[selectedTest][0].key);
+    }
   }, [selectedTest]);
 
-  const fetchScores = async () => {
+  const loadResults = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -86,278 +66,262 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
 
       if (error) throw error;
 
-      const newScores: any = { pre: {}, mid: {}, post: {} };
-      
-      data?.forEach((row: any) => {
-        const moment = row.moment as 'pre' | 'mid' | 'post';
-        const testType = row.test_type; // pcq, mbi, dass
-        
-        // Iterar sobre las escalas de ese test y guardar los valores
-        if (TEST_CONFIG[testType]) {
-          Object.keys(TEST_CONFIG[testType].scales).forEach(scaleKey => {
-            if (row[scaleKey] !== null && row[scaleKey] !== undefined) {
-              newScores[moment][scaleKey] = row[scaleKey];
-            }
-          });
-        }
-      });
+      // Reconstruir el estado de forma segura
+      const newData = {
+        pre: { PCQ: {}, MBI: {}, DASS: {} },
+        mid: { PCQ: {} },
+        post: { PCQ: {}, MBI: {}, DASS: {} }
+      };
 
-      setScores(newScores);
-    } catch (err) {
-      console.error("Error cargando evaluaciones:", err);
+      if (data) {
+        data.forEach((row: any) => {
+          const moment = row.moment as 'pre' | 'mid' | 'post';
+          const testType = row.test_type as 'PCQ' | 'MBI' | 'DASS';
+          
+          if (newData[moment] && newData[moment][testType]) {
+            // Guardamos los puntajes directos
+            newData[moment][testType] = { ...newData[moment][testType], ...row.results };
+          }
+        });
+      }
+      setFormData(newData);
+    } catch (err: any) {
+      console.error("Error cargando:", err);
+      setMessage({ type: 'error', text: 'No se pudieron cargar los resultados anteriores.' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleScoreChange = (moment: 'pre' | 'mid' | 'post', scale: string, value: number) => {
-    setScores(prev => ({
+  const handleScoreChange = (moment: string, test: string, scale: string, value: number) => {
+    setFormData(prev => ({
       ...prev,
       [moment]: {
         ...prev[moment],
-        [scale]: value
+        [test]: {
+          ...(prev[moment] as any)[test],
+          [scale]: value
+        }
       }
     }));
   };
 
-  const saveEvaluation = async (moment: 'pre' | 'mid' | 'post') => {
+  const saveResults = async () => {
+    if (!patientId) return;
     setSaving(true);
+    setMessage(null);
+
     try {
-      const currentScores = scores[moment];
-      const payload = {
-        patient_id: patientId,
-        test_type: selectedTest,
-        moment: moment,
-        ...currentScores // Desglosa las escalas: self_efficacy: 5, hope: 6...
-      };
-
-      // Verificar si ya existe para actualizar o insertar
-      const { data: existing } = await supabase
-        .from('psychometric_evaluations')
-        .select('id')
-        .eq('patient_id', patientId)
-        .eq('test_type', selectedTest)
-        .eq('moment', moment)
-        .single();
-
-      let error;
-      if (existing) {
-        const res = await supabase.from('psychometric_evaluations').update(payload).eq('id', existing.id);
-        error = res.error;
-      } else {
-        const res = await supabase.from('psychometric_evaluations').insert([payload]);
-        error = res.error;
+      const recordsToInsert = [];
+      const moments = ['pre', 'mid', 'post'];
+      
+      for (const moment of moments) {
+        const tests = Object.keys(formData[moment as keyof typeof formData]);
+        for (const test of tests) {
+          const results = (formData[moment as keyof typeof formData] as any)[test];
+          // Solo guardar si hay al menos un dato en ese test
+          if (results && Object.keys(results).length > 0) {
+            recordsToInsert.push({
+              patient_id: patientId,
+              moment,
+              test_type: test,
+              results
+            });
+          }
+        }
       }
 
+      if (recordsToInsert.length === 0) {
+        setMessage({ type: 'error', text: 'Ingresa al menos un puntaje antes de guardar.' });
+        setSaving(false);
+        return;
+      }
+
+      // Upsert: Intentar actualizar si existe, o insertar si no
+      // Para simplificar, borramos los existentes de este paciente y重新insertamos todo (estrategia segura para MVP)
+      await supabase.from('psychometric_evaluations').delete().eq('patient_id', patientId);
+      
+      const { error } = await supabase.from('psychometric_evaluations').insert(recordsToInsert);
       if (error) throw error;
-      alert(`âœ… Resultados ${moment === 'pre' ? 'Pre' : moment === 'mid' ? 'Intermedios' : 'Post'} guardados correctamente.`);
+
+      setMessage({ type: 'success', text: 'Resultados guardados correctamente.' });
     } catch (err: any) {
-      alert(`âŒ Error al guardar: ${err.message}`);
+      setMessage({ type: 'error', text: `Error al guardar: ${err.message}` });
     } finally {
       setSaving(false);
     }
   };
 
-  // Preparar datos para la grÃ¡fica
-  const chartData = useMemo(() => {
-    if (!selectedScale) return [];
-    
-    const dataPoint: any = {
-      name: TEST_CONFIG[selectedTest].scales[selectedScale] || selectedScale
-    };
+  // Preparar datos para la gráfica de forma DEFENSIVA
+  const getChartData = () => {
+    const currentScale = selectedScale;
+    if (!currentScale) return [];
 
-    // Obtener valores para cada momento, solo si el test es vÃ¡lido para ese momento
-    // PCQ: Pre, Mid, Post | MBI/DASS: Pre, Post
-    if (scores.pre[selectedScale]) dataPoint.Pre = scores.pre[selectedScale];
-    
-    if (selectedTest === 'pcq' && scores.mid[selectedScale]) {
-      dataPoint.Mitad = scores.mid[selectedScale];
+    // Extraer valores seguros, defaults a 0 si no existen
+    const preVal = (formData.pre[selectedTest] as any)?.[currentScale] ?? 0;
+    const midVal = selectedTest === 'PCQ' ? ((formData.mid.PCQ as any)?.[currentScale] ?? 0) : null;
+    const postVal = (formData.post[selectedTest] as any)?.[currentScale] ?? 0;
+
+    const data = [
+      { name: 'Pre', value: preVal, fill: '#94a3b8' }, // Slate 400
+      { name: 'Post', value: postVal, fill: '#22c55e' } // Green 500
+    ];
+
+    if (selectedTest === 'PCQ' && midVal !== null) {
+      data.splice(1, 0, { name: 'Mitad', value: midVal, fill: '#3b82f6' }); // Blue 500
     }
-    
-    if (scores.post[selectedScale]) dataPoint.Post = scores.post[selectedScale];
 
-    return [dataPoint];
-  }, [scores, selectedTest, selectedScale]);
+    return data;
+  };
 
-  const currentConfig = TEST_CONFIG[selectedTest];
-  const ScaleIcon = currentConfig.icon;
+  const chartData = getChartData();
+
+  if (loading) return <div className="p-8 text-center text-zinc-400">Cargando evaluaciones...</div>;
 
   return (
-    <div className="space-y-8 p-2">
-      {/* Controles Superiores: Filtros */}
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {message && (
+        <div className={`p-4 rounded border flex items-center gap-2 ${message.type === 'success' ? 'bg-green-900/20 border-green-800 text-green-400' : 'bg-red-900/20 border-red-800 text-red-400'}`}>
+          {message.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+          {message.text}
+        </div>
+      )}
+
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-4 items-end bg-zinc-900/50 p-4 rounded border border-zinc-800">
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1">Prueba</label>
+          <select 
+            value={selectedTest} 
+            onChange={(e) => setSelectedTest(e.target.value as any)}
+            className="bg-zinc-950 border border-zinc-700 text-white rounded px-3 py-2 text-sm"
+          >
+            <option value="PCQ">PCQ-24</option>
+            <option value="MBI">MBI</option>
+            <option value="DASS">DASS-21</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1">Subescala</label>
+          <select 
+            value={selectedScale} 
+            onChange={(e) => setSelectedScale(e.target.value)}
+            className="bg-zinc-950 border border-zinc-700 text-white rounded px-3 py-2 text-sm"
+          >
+            {SCALES[selectedTest as keyof typeof SCALES]?.map((s) => (
+              <option key={s.key} value={s.key}>{s.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Gráfica Comparativa */}
       <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Activity className="w-5 h-5 text-blue-500" /> Filtros de ComparaciÃ³n
+          <CardTitle className="text-white text-lg flex justify-between">
+            <span>Evolución: {SCALES[selectedTest as keyof typeof SCALES]?.find(s => s.key === selectedScale)?.label}</span>
+            <Badge variant="outline" className="border-zinc-700 text-zinc-400">Comparativa</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label className="text-zinc-400">Prueba PsicolÃ³gica</Label>
-            <div className="flex gap-2">
-              {Object.entries(TEST_CONFIG).map(([key, config]: any) => {
-                const Icon = config.icon;
-                return (
-                  <Button
-                    key={key}
-                    variant={selectedTest === key ? 'default' : 'outline'}
-                    className={`flex-1 ${selectedTest === key ? 'bg-blue-600 hover:bg-blue-700' : 'border-zinc-700 text-zinc-400 hover:text-white'}`}
-                    onClick={() => setSelectedTest(key as any)}
-                  >
-                    <Icon className="w-4 h-4 mr-2" /> {key.toUpperCase()}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-zinc-400">Subescala / DimensiÃ³n</Label>
-            <select
-              value={selectedScale}
-              onChange={(e) => setSelectedScale(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-700 text-white rounded-md p-2 focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              {Object.entries(currentConfig.scales).map(([key, label]: any) => (
-                <option key={key} value={key}>{label}</option>
-              ))}
-            </select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* GrÃ¡fica Comparativa */}
-      <Card className="bg-zinc-900 border-zinc-800 h-[400px]">
-        <CardHeader>
-          <CardTitle className="text-white text-lg">EvoluciÃ³n: {currentConfig.scales[selectedScale]}</CardTitle>
-        </CardHeader>
         <CardContent className="h-[300px] w-full">
-          {chartData.length > 0 && chartData[0].Pre !== undefined || chartData[0].Post !== undefined ? (
+          {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="name" stroke="#888" />
-                <YAxis stroke="#888" domain={[0, currentConfig.maxScore * 1.2]} />
-                <RechartsTooltip 
-                  contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', color: '#fff' }}
+                <XAxis dataKey="name" stroke="#999" />
+                <YAxis stroke="#999" />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }}
                   itemStyle={{ color: '#fff' }}
                 />
                 <Legend />
-                <ReferenceLine y={currentConfig.maxScore * 0.7} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'Umbral Alto', fill: '#ef4444', fontSize: 12 }} />
-                
-                <Bar dataKey="Pre" fill="#71717a" name="Inicio (Pre)" radius={[4, 4, 0, 0]} />
-                {selectedTest === 'pcq' && (
-                  <Bar dataKey="Mitad" fill="#3b82f6" name="Mitad (Intermedio)" radius={[4, 4, 0, 0]} />
-                )}
-                <Bar dataKey="Post" fill="#10b981" name="Final (Post)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="value" name="Puntaje" fill="#8884d8" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
+                {/* Línea de referencia ejemplo (ajustable según prueba) */}
+                {selectedTest === 'DASS' && <ReferenceLine y={10} stroke="#ef4444" strokeDasharray="3 3" label="Umbral Moderado" />}
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-zinc-500">
-              <p>Suficientes datos para mostrar la grÃ¡fica.</p>
-              <p className="text-sm">Ingresa resultados en los formularios de abajo.</p>
-              {selectedTest !== 'pcq' && (
-                <p className="text-xs mt-2 text-orange-400">Nota: La evaluaciÃ³n "Mitad" solo aplica para PCQ-24.</p>
-              )}
+            <div className="h-full flex items-center justify-center text-zinc-500 text-sm">
+              Sin datos para graficar
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Formularios de Ingreso por Momento */}
+      {/* Formularios de Entrada */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* PRE */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Badge className="bg-zinc-700">PRE</Badge> Inicio del Tratamiento
-            </h3>
-            <Button size="sm" onClick={() => saveEvaluation('pre')} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
-              <Save className="w-3 h-3 mr-1" /> Guardar
-            </Button>
-          </div>
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardContent className="pt-6 space-y-4">
-              {Object.entries(currentConfig.scales).map(([key, label]: any) => (
-                <div key={`pre-${key}`} className="space-y-1">
-                  <Label className="text-xs text-zinc-400">{label}</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={scores.pre[key] || ''}
-                    onChange={(e) => handleScoreChange('pre', key, parseFloat(e.target.value))}
-                    placeholder="0"
-                    className="bg-zinc-950 border-zinc-700 text-white focus:ring-blue-500"
-                  />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader><CardTitle className="text-white text-base">Inicio (Pre)</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {SCALES[selectedTest as keyof typeof SCALES]?.map((scale) => (
+              <div key={`pre-${scale.key}`}>
+                <label className="text-xs text-zinc-400 block mb-1">{scale.label}</label>
+                <input 
+                  type="number" 
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
+                  value={(formData.pre[selectedTest] as any)?.[scale.key] || ''}
+                  onChange={(e) => handleScoreChange('pre', selectedTest, scale.key, parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
 
         {/* MID (Solo PCQ) */}
-        <div className={`space-y-4 ${selectedTest !== 'pcq' ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Badge className="bg-blue-900 text-blue-200">MID</Badge> Mitad del Tratamiento
-            </h3>
-            <Button size="sm" onClick={() => saveEvaluation('mid')} disabled={saving || selectedTest !== 'pcq'} className="bg-blue-600 hover:bg-blue-700">
-              <Save className="w-3 h-3 mr-1" /> Guardar
-            </Button>
-          </div>
+        {selectedTest === 'PCQ' && (
           <Card className="bg-zinc-900 border-zinc-800">
-            <CardContent className="pt-6 space-y-4">
-              {selectedTest === 'pcq' ? (
-                Object.entries(currentConfig.scales).map(([key, label]: any) => (
-                  <div key={`mid-${key}`} className="space-y-1">
-                    <Label className="text-xs text-zinc-400">{label}</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={scores.mid[key] || ''}
-                      onChange={(e) => handleScoreChange('mid', key, parseFloat(e.target.value))}
-                      placeholder="0"
-                      className="bg-zinc-950 border-zinc-700 text-white focus:ring-blue-500"
-                    />
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-zinc-500 text-sm">
-                  No se evalÃºa en la mitad del tratamiento.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* POST */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Badge className="bg-green-900 text-green-200">POST</Badge> Final del Tratamiento
-            </h3>
-            <Button size="sm" onClick={() => saveEvaluation('post')} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
-              <Save className="w-3 h-3 mr-1" /> Guardar
-            </Button>
-          </div>
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardContent className="pt-6 space-y-4">
-              {Object.entries(currentConfig.scales).map(([key, label]: any) => (
-                <div key={`post-${key}`} className="space-y-1">
-                  <Label className="text-xs text-zinc-400">{label}</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={scores.post[key] || ''}
-                    onChange={(e) => handleScoreChange('post', key, parseFloat(e.target.value))}
+            <CardHeader><CardTitle className="text-white text-base">Mitad (Intermedio)</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {SCALES.PCQ.map((scale) => (
+                <div key={`mid-${scale.key}`}>
+                  <label className="text-xs text-zinc-400 block mb-1">{scale.label}</label>
+                  <input 
+                    type="number" 
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
+                    value={(formData.mid.PCQ as any)?.[scale.key] || ''}
+                    onChange={(e) => handleScoreChange('mid', 'PCQ', scale.key, parseFloat(e.target.value) || 0)}
                     placeholder="0"
-                    className="bg-zinc-950 border-zinc-700 text-white focus:ring-blue-500"
                   />
                 </div>
               ))}
             </CardContent>
           </Card>
-        </div>
+        )}
+
+        {/* POST */}
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader><CardTitle className="text-white text-base">Final (Post)</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {SCALES[selectedTest as keyof typeof SCALES]?.map((scale) => (
+              <div key={`post-${scale.key}`}>
+                <label className="text-xs text-zinc-400 block mb-1">{scale.label}</label>
+                <input 
+                  type="number" 
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
+                  value={(formData.post[selectedTest] as any)?.[scale.key] || ''}
+                  onChange={(e) => handleScoreChange('post', selectedTest, scale.key, parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex justify-end pt-4 border-t border-zinc-800">
+        <Button 
+          onClick={saveResults} 
+          disabled={saving}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-8"
+        >
+          {saving ? 'Guardando...' : 'Guardar Resultados'}
+        </Button>
       </div>
     </div>
   );

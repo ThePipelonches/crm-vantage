@@ -142,17 +142,17 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
         await supabase.from('psychometric_evaluations').upsert(dassRow, { onConflict: 'patient_id,moment,test_type' });
       }
 
-      setSavedMsg('✅ Evaluación guardada correctamente');
+      setSavedMsg('âœ… EvaluaciÃ³n guardada correctamente');
       setTimeout(() => setSavedMsg(''), 3000);
     } catch (err) {
       console.error(err);
-      setSavedMsg('❌ Error al guardar');
+      setSavedMsg('âŒ Error al guardar');
     } finally {
       setLoading(false);
     }
   };
 
-  // Generar datos para la gráfica comparativa
+  // Generar datos para la grÃ¡fica comparativa
   const getChartData = () => {
     if (activeTest === 'pcq') {
       return [
@@ -164,14 +164,14 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
     } else if (activeTest === 'mbi') {
       return [
         { name: 'Agotamiento', Pre: formData.pre.mbi.ee, Post: formData.post.mbi.ee },
-        { name: 'Despersonalización', Pre: formData.pre.mbi.dp, Post: formData.post.mbi.dp },
-        { name: 'Realización Pers.', Pre: formData.pre.mbi.pa, Post: formData.post.mbi.pa },
+        { name: 'DespersonalizaciÃ³n', Pre: formData.pre.mbi.dp, Post: formData.post.mbi.dp },
+        { name: 'RealizaciÃ³n Pers.', Pre: formData.pre.mbi.pa, Post: formData.post.mbi.pa },
       ];
     } else {
       return [
-        { name: 'Depresión', Pre: formData.pre.dass.dep, Post: formData.post.dass.dep },
+        { name: 'DepresiÃ³n', Pre: formData.pre.dass.dep, Post: formData.post.dass.dep },
         { name: 'Ansiedad', Pre: formData.pre.dass.anx, Post: formData.post.dass.anx },
-        { name: 'Estrés', Pre: formData.pre.dass.str, Post: formData.post.dass.str },
+        { name: 'EstrÃ©s', Pre: formData.pre.dass.str, Post: formData.post.dass.str },
       ];
     }
   };
@@ -204,7 +204,7 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
       
       {activeMoment === 'mid' && (
         <div className="text-center mb-4 text-zinc-400 italic">
-          Mostrando únicamente PCQ-24 (Evaluación Intermedia)
+          Mostrando Ãºnicamente PCQ-24 (EvaluaciÃ³n Intermedia)
         </div>
       )}
 
@@ -218,29 +218,29 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Inputs Dinámicos según la prueba */}
+          {/* Inputs DinÃ¡micos segÃºn la prueba */}
           {activeTest === 'pcq' && (
             <>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Autoeficacia (SE)</label><input type="number" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].pcq.se} onChange={(e) => handleInputChange('pcq', 'se', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Esperanza (Hope)</label><input type="number" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].pcq.hope} onChange={(e) => handleInputChange('pcq', 'hope', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Resiliencia (Res)</label><input type="number" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].pcq.res} onChange={(e) => handleInputChange('pcq', 'res', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Optimismo (Opt)</label><input type="number" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].pcq.opt} onChange={(e) => handleInputChange('pcq', 'opt', parseFloat(e.target.value) || 0)} /></div>
+              <div className="space-y-2"><label className="text-sm text-zinc-400">Autoeficacia (SE)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].pcq.se} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('pcq', 'se', parseFloat(e.target.value) || 0)} /></div>
+              <div className="space-y-2"><label className="text-sm text-zinc-400">Esperanza (Hope)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].pcq.hope} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('pcq', 'hope', parseFloat(e.target.value) || 0)} /></div>
+              <div className="space-y-2"><label className="text-sm text-zinc-400">Resiliencia (Res)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].pcq.res} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('pcq', 'res', parseFloat(e.target.value) || 0)} /></div>
+              <div className="space-y-2"><label className="text-sm text-zinc-400">Optimismo (Opt)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].pcq.opt} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('pcq', 'opt', parseFloat(e.target.value) || 0)} /></div>
             </>
           )}
           
           {activeTest === 'mbi' && activeMoment !== 'mid' && (
             <>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Agotamiento Emocional (EE)</label><input type="number" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].mbi.ee} onChange={(e) => handleInputChange('mbi', 'ee', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Despersonalización (DP)</label><input type="number" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].mbi.dp} onChange={(e) => handleInputChange('mbi', 'dp', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Realización Personal (PA)</label><input type="number" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].mbi.pa} onChange={(e) => handleInputChange('mbi', 'pa', parseFloat(e.target.value) || 0)} /></div>
+              <div className="space-y-2"><label className="text-sm text-zinc-400">Agotamiento Emocional (EE)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].mbi.ee} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('mbi', 'ee', parseFloat(e.target.value) || 0)} /></div>
+              <div className="space-y-2"><label className="text-sm text-zinc-400">DespersonalizaciÃ³n (DP)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].mbi.dp} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('mbi', 'dp', parseFloat(e.target.value) || 0)} /></div>
+              <div className="space-y-2"><label className="text-sm text-zinc-400">RealizaciÃ³n Personal (PA)</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].mbi.pa} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('mbi', 'pa', parseFloat(e.target.value) || 0)} /></div>
             </>
           )}
 
           {activeTest === 'dass' && activeMoment !== 'mid' && (
             <>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Depresión</label><input type="number" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].dass.dep} onChange={(e) => handleInputChange('dass', 'dep', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Ansiedad</label><input type="number" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].dass.anx} onChange={(e) => handleInputChange('dass', 'anx', parseFloat(e.target.value) || 0)} /></div>
-              <div className="space-y-2"><label className="text-sm text-zinc-400">Estrés</label><input type="number" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].dass.str} onChange={(e) => handleInputChange('dass', 'str', parseFloat(e.target.value) || 0)} /></div>
+              <div className="space-y-2"><label className="text-sm text-zinc-400">DepresiÃ³n</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].dass.dep} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('dass', 'dep', parseFloat(e.target.value) || 0)} /></div>
+              <div className="space-y-2"><label className="text-sm text-zinc-400">Ansiedad</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].dass.anx} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('dass', 'anx', parseFloat(e.target.value) || 0)} /></div>
+              <div className="space-y-2"><label className="text-sm text-zinc-400">EstrÃ©s</label><input type="text" ``className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white" value={formData[activeMoment].dass.str} onChange={(e) = className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/ className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white text-center focus:ring-2 focus:ring-blue-500 outline-none"/> handleInputChange('dass', 'str', parseFloat(e.target.value) || 0)} /></div>
             </>
           )}
         </CardContent>
@@ -251,10 +251,10 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
         </div>
       </Card>
 
-      {/* Gráfica Comparativa */}
+      {/* GrÃ¡fica Comparativa */}
       <Card className="bg-zinc-900 border-zinc-800 mt-6">
         <CardHeader>
-          <CardTitle className="text-white">Evolución Comparativa</CardTitle>
+          <CardTitle className="text-white">EvoluciÃ³n Comparativa</CardTitle>
         </CardHeader>
         <CardContent className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
@@ -265,7 +265,7 @@ export default function PsychometricEval({ patientId }: PsychometricEvalProps) {
               <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', color: '#fff' }} />
               <Legend />
               {activeMoment === 'pre' && <ReferenceLine y={0} stroke="#fff" />} 
-              {/* Barras dinámicas según momento actual para resaltar comparación */}
+              {/* Barras dinÃ¡micas segÃºn momento actual para resaltar comparaciÃ³n */}
               <Bar dataKey="Pre" fill="#6b7280" name="Inicio" />
               {activeMoment !== 'pre' && <Bar dataKey="Mid" fill="#3b82f6" name="Mitad" />}
               {activeMoment !== 'mid' && <Bar dataKey="Post" fill="#10b981" name="Final" />}

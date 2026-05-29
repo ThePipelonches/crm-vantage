@@ -18,7 +18,7 @@ export default function ClinicalRecord() {
   const [activeTab, setActiveTab] = useState<'data' | 'rol' | 'eval'>('data');
   const [innerTab, setInnerTab] = useState<'protocol' | 'sessions'>('protocol');
 
-  // Estados Gestión de Estado Paciente
+  // Estados GestiÃ³n de Estado Paciente
   const [currentStatus, setCurrentStatus] = useState('active');
   const [statusDate, setStatusDate] = useState('');
   const [statusComment, setStatusComment] = useState('');
@@ -34,7 +34,7 @@ export default function ClinicalRecord() {
   const [rolPlan, setRolPlan] = useState('');
   const [savingRol, setSavingRol] = useState(false);
 
-  // Estados Protocolo Clínico (Editable)
+  // Estados Protocolo ClÃ­nico (Editable)
   const [protoAffiliation, setProtoAffiliation] = useState('');
   const [protoMentalCapital, setProtoMentalCapital] = useState('');
   const [protoDiagnosis, setProtoDiagnosis] = useState('');
@@ -87,7 +87,7 @@ export default function ClinicalRecord() {
         setProtoAxes(data.axes_analysis || '');
         setProtoPlan(data.treatment_plan || '');
       }
-    } catch (err) { console.log("Sin protocolo previo, se inicia vacío."); }
+    } catch (err) { console.log("Sin protocolo previo, se inicia vacÃ­o."); }
   };
 
   const fetchSessionHistory = async () => {
@@ -106,9 +106,9 @@ export default function ClinicalRecord() {
       
       const { error } = await supabase.from('patients').update(updateData).eq('id', patientId);
       if (error) throw error;
-      alert("✅ Estado actualizado");
+      alert("âœ… Estado actualizado");
       fetchPatientData();
-    } catch (err: any) { alert("❌ Error: " + err.message); }
+    } catch (err: any) { alert("âŒ Error: " + err.message); }
     finally { setSavingStatus(false); }
   };
 
@@ -121,10 +121,10 @@ export default function ClinicalRecord() {
         comments: rolComment, action_plan: rolPlan
       }]);
       if (error) throw error;
-      alert("✅ ROL guardado");
+      alert("âœ… ROL guardado");
       setRolComment(''); setRolPlan('');
       fetchRolLogs();
-    } catch (err: any) { alert("❌ Error ROL: " + err.message); }
+    } catch (err: any) { alert("âŒ Error ROL: " + err.message); }
     finally { setSavingRol(false); }
   };
 
@@ -147,11 +147,52 @@ export default function ClinicalRecord() {
         const { error: insErr } = await supabase.from('clinical_protocols').insert([payload]);
         if (insErr) throw insErr;
       }
-      alert("✅ Historia Clínica (Protocolo) guardada correctamente");
-    } catch (err: any) { alert("❌ Error Protocolo: " + err.message); }
+      alert("âœ… Historia ClÃ­nica (Protocolo) guardada correctamente");
+    } catch (err: any) { alert("âŒ Error Protocolo: " + err.message); }
     finally { setSavingProto(false); }
   };
 
+
+
+  const handleEditSession = (session: any) => {
+    setEditingSessionId(session.id);
+    // Rellenar campos manualmente
+    const numEl = document.getElementById('sessNum') as HTMLInputElement;
+    const topicEl = document.getElementById('sessTopic') as HTMLInputElement;
+    const obsEl = document.getElementById('sessObs') as HTMLTextAreaElement;
+    const commEl = document.getElementById('sessComm') as HTMLTextAreaElement;
+    const scoreEl = document.getElementById('sessScore') as HTMLInputElement;
+
+    if(numEl) numEl.value = session.session_number;
+    if(topicEl) topicEl.value = session.module_topic || '';
+    if(obsEl) obsEl.value = session.clinical_observations || '';
+    if(commEl) commEl.value = session.patient_commitments || '';
+    if(scoreEl) scoreEl.value = session.patient_status_score !== null ? session.patient_status_score.toString() : '';
+    
+    // Scroll suave hacia el formulario
+    document.getElementById('sessNum')?.scrollIntoView({ behavior: 'smooth' });
+  };
+  const handleDeleteSession = async (id: string) => {
+    if (!confirm("⚠️ ¿Estás seguro de que deseas eliminar esta sesión? Esta acción no se puede deshacer.")) return;
+    
+    try {
+      const { error } = await supabase.from('patient_sessions').delete().eq('id', id);
+      if (error) throw error;
+      alert("🗑️ Sesión eliminada correctamente");
+      // Si estábamos editando la que borramos, limpiar formulario
+      if (editingSessionId === id) {
+        setEditingSessionId(null);
+        const numEl = document.getElementById('sessNum') as HTMLInputElement;
+        const topicEl = document.getElementById('sessTopic') as HTMLInputElement;
+        const obsEl = document.getElementById('sessObs') as HTMLTextAreaElement;
+        const commEl = document.getElementById('sessComm') as HTMLTextAreaElement;
+        const scoreEl = document.getElementById('sessScore') as HTMLInputElement;
+        if(numEl) numEl.value = ''; if(topicEl) topicEl.value = '';
+        if(obsEl) obsEl.value = ''; if(commEl) commEl.value = ''; if(scoreEl) scoreEl.value = '';
+      }
+      fetchSessionHistory();
+    } catch (e: any) { alert("❌ Error al borrar: " + e.message); }
+  };
   const handleSaveSession = async () => {
     const numEl = document.getElementById('sessNum') as HTMLInputElement;
     const topicEl = document.getElementById('sessTopic') as HTMLInputElement;
@@ -159,7 +200,7 @@ export default function ClinicalRecord() {
     const commEl = document.getElementById('sessComm') as HTMLTextAreaElement;
     const scoreEl = document.getElementById('sessScore') as HTMLInputElement;
 
-    if (!numEl || !topicEl || !numEl.value || !topicEl.value) { alert("⚠️ Completa Sesión y Tema"); return; }
+    if (!numEl || !topicEl || !numEl.value || !topicEl.value) { alert("âš ï¸ Completa SesiÃ³n y Tema"); return; }
 
     try {
       const { error } = await supabase.from('patient_sessions').insert([{
@@ -171,12 +212,12 @@ export default function ClinicalRecord() {
         patient_status_score: scoreEl?.value ? parseInt(scoreEl.value) : null
       }]);
       if (error) throw error;
-      alert("✅ Sesión guardada");
+      alert("âœ… SesiÃ³n guardada");
       // Limpiar
       if(numEl) numEl.value = ''; if(topicEl) topicEl.value = '';
       if(obsEl) obsEl.value = ''; if(commEl) commEl.value = ''; if(scoreEl) scoreEl.value = '';
       fetchSessionHistory();
-    } catch (e: any) { alert("❌ Error Sesión: " + e.message); }
+    } catch (e: any) { alert("âŒ Error SesiÃ³n: " + e.message); }
   };
 
   if (loading) return <div className="p-6 text-white">Cargando...</div>;
@@ -200,7 +241,7 @@ export default function ClinicalRecord() {
 
       {/* Tabs Principales */}
       <div className="flex gap-2 border-b border-zinc-800">
-        <button onClick={() => {setActiveTab('data'); setInnerTab('protocol')}} className={`pb-2 px-4 ${activeTab==='data'&&innerTab==='protocol'?'text-white border-b-2 border-blue-500':'text-zinc-500'}`}>Datos Clínicos</button>
+        <button onClick={() => {setActiveTab('data'); setInnerTab('protocol')}} className={`pb-2 px-4 ${activeTab==='data'&&innerTab==='protocol'?'text-white border-b-2 border-blue-500':'text-zinc-500'}`}>Datos ClÃ­nicos</button>
         <button onClick={() => setActiveTab('rol')} className={`pb-2 px-4 ${activeTab==='rol'?'text-white border-b-2 border-blue-500':'text-zinc-500'}`}>ROL Semanal</button>
         <button onClick={() => setActiveTab('eval')} className={`pb-2 px-4 ${activeTab==='eval'?'text-white border-b-2 border-blue-500':'text-zinc-500'}`}>Evaluaciones</button>
       </div>
@@ -214,7 +255,7 @@ export default function ClinicalRecord() {
             <CardHeader><CardTitle className="text-white">Registro ROL</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <input type="number" value={sessionNum} onChange={e=>setSessionNum(parseInt(e.target.value))} placeholder="N° Sesión" className="bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
+                <input type="number" value={sessionNum} onChange={e=>setSessionNum(parseInt(e.target.value))} placeholder="NÂ° SesiÃ³n" className="bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
                 <select value={newRisk} onChange={e=>setNewRisk(e.target.value)} className="bg-zinc-950 border border-zinc-700 rounded p-2 text-white">
                   <option value="low">Bajo (Verde)</option><option value="medium">Medio (Amarillo)</option><option value="high">Alto (Rojo)</option>
                 </select>
@@ -222,17 +263,17 @@ export default function ClinicalRecord() {
               {(newRisk==='medium'||newRisk==='high') && (
                 <>
                   <input placeholder="Comentario" value={rolComment} onChange={e=>setRolComment(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
-                  <textarea placeholder="Plan de Acción" value={rolPlan} onChange={e=>setRolPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white h-20"/>
+                  <textarea placeholder="Plan de AcciÃ³n" value={rolPlan} onChange={e=>setRolPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white h-20"/>
                 </>
               )}
               <Button onClick={handleSaveRol} disabled={savingRol} className="w-full bg-blue-600">{savingRol?'Guardando...':'Guardar ROL'}</Button>
             </CardContent>
           </Card>
           <Card className="bg-zinc-900 border-zinc-800 h-64"><CardContent className="h-full pt-6">{chartData.length>0?<ResponsiveContainer width="100%" height="100%"><LineChart data={chartData}><CartesianGrid stroke="#333"/><XAxis dataKey="session" stroke="#999"/><YAxis domain={[0,4]} stroke="#999"/><Tooltip contentStyle={{backgroundColor:'#18181b',borderColor:'#333'}}/><Line type="monotone" dataKey="risk" stroke="#8884d8" strokeWidth={3}/></LineChart></ResponsiveContainer>:<p className="text-zinc-500 text-center">Sin datos</p>}</CardContent></Card>
-          <div className="space-y-2">{rolLogs.map((l:any)=><div key={l.id} className="bg-zinc-900 p-3 rounded border border-zinc-800 flex justify-between"><span className="text-white font-bold">Sesión {l.session_number}</span><span className="text-xs text-zinc-400">{l.comments}</span></div>)}</div>
+          <div className="space-y-2">{rolLogs.map((l:any)=><div key={l.id} className="bg-zinc-900 p-3 rounded border border-zinc-800 flex justify-between"><span className="text-white font-bold">SesiÃ³n {l.session_number}</span><span className="text-xs text-zinc-400">{l.comments}</span></div>)}</div>
         </div>
       ) : (
-        /* --- DATOS CLÍNICOS (Con Sub-Tabs) --- */
+        /* --- DATOS CLÃNICOS (Con Sub-Tabs) --- */
         <div className="space-y-6 animate-in fade-in">
           {/* Sub-Tabs Internas */}
           <div className="flex gap-2 mb-4 pl-4 border-l-2 border-blue-500">
@@ -242,9 +283,9 @@ export default function ClinicalRecord() {
 
           {innerTab === 'protocol' ? (
             <div className="space-y-6">
-              {/* Gestión de Estado (Resumen) */}
+              {/* GestiÃ³n de Estado (Resumen) */}
               <Card className="bg-zinc-900 border-zinc-800">
-                <CardHeader><CardTitle className="text-white text-sm">Gestión Rápida de Estado</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-white text-sm">GestiÃ³n RÃ¡pida de Estado</CardTitle></CardHeader>
                 <CardContent className="flex gap-4 items-end">
                   <div className="flex-1"><label className="text-xs text-zinc-400">Estado</label><select value={currentStatus} onChange={e=>setCurrentStatus(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"><option value="active">Activo</option><option value="inactive">Inactivo</option><option value="deserter">Desertor</option></select></div>
                   <Button onClick={handleSaveStatus} disabled={savingStatus} className="bg-blue-600">{savingStatus?'...':'Actualizar'}</Button>
@@ -253,14 +294,14 @@ export default function ClinicalRecord() {
 
               {/* Formulario Protocolo Editable */}
               <div className="space-y-4">
-                <div><label className="text-xs text-blue-400 font-bold block mb-1">I. DATOS DE FILIACIÓN</label><textarea value={protoAffiliation} onChange={e=>setProtoAffiliation(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-32"/></div>
-                <div><label className="text-xs text-blue-400 font-bold block mb-1">II. EVALUACIÓN CAPITAL MENTAL</label><textarea value={protoMentalCapital} onChange={e=>setProtoMentalCapital(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
-                <div><label className="text-xs text-blue-400 font-bold block mb-1">III. DIAGNÓSTICO FUNCIONAL</label><textarea value={protoDiagnosis} onChange={e=>setProtoDiagnosis(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
-                <div><label className="text-xs text-blue-400 font-bold block mb-1">IV. ANÁLISIS POR EJES</label><textarea value={protoAxes} onChange={e=>setProtoAxes(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-64"/></div>
+                <div><label className="text-xs text-blue-400 font-bold block mb-1">I. DATOS DE FILIACIÃ“N</label><textarea value={protoAffiliation} onChange={e=>setProtoAffiliation(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-32"/></div>
+                <div><label className="text-xs text-blue-400 font-bold block mb-1">II. EVALUACIÃ“N CAPITAL MENTAL</label><textarea value={protoMentalCapital} onChange={e=>setProtoMentalCapital(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
+                <div><label className="text-xs text-blue-400 font-bold block mb-1">III. DIAGNÃ“STICO FUNCIONAL</label><textarea value={protoDiagnosis} onChange={e=>setProtoDiagnosis(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
+                <div><label className="text-xs text-blue-400 font-bold block mb-1">IV. ANÃLISIS POR EJES</label><textarea value={protoAxes} onChange={e=>setProtoAxes(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-64"/></div>
                 <div><label className="text-xs text-blue-400 font-bold block mb-1">V. PLAN DE TRATAMIENTO</label><textarea value={protoPlan} onChange={e=>setProtoPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
                 
                 <Button onClick={handleSaveProtocol} disabled={savingProto} className="w-full bg-green-700 hover:bg-green-600 text-white py-4 text-lg font-bold">
-                  {savingProto ? 'Guardando Historia Clínica...' : '💾 GUARDAR HISTORIA CLÍNICA COMPLETA'}
+                  {savingProto ? 'Guardando Historia ClÃ­nica...' : 'ðŸ’¾ GUARDAR HISTORIA CLÃNICA COMPLETA'}
                 </Button>
               </div>
             </div>
@@ -268,23 +309,28 @@ export default function ClinicalRecord() {
             /* --- HISTORIAL DE SESIONES --- */
             <div className="space-y-6">
               <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-blue-500">
-                <CardHeader><CardTitle className="text-white">Registrar Nueva Sesión</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-white">Registrar Nueva SesiÃ³n</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div><label className="text-xs text-zinc-400">N° Sesión</label><input type="number" id="sessNum" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
-                    <div className="col-span-2"><label className="text-xs text-zinc-400">Módulo/Tema</label><input type="text" id="sessTopic" placeholder="Ej: Módulo 2" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
+                    <div><label className="text-xs text-zinc-400">NÂ° SesiÃ³n</label><input type="number" id="sessNum" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
+                    <div className="col-span-2"><label className="text-xs text-zinc-400">MÃ³dulo/Tema</label><input type="text" id="sessTopic" placeholder="Ej: MÃ³dulo 2" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
                     <div><label className="text-xs text-zinc-400">Estado (0-10)</label><input type="number" min="0" max="10" id="sessScore" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
                   </div>
                   <div><label className="text-xs text-zinc-400">Observaciones</label><textarea id="sessObs" rows={3} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"></textarea></div>
                   <div><label className="text-xs text-zinc-400">Compromisos</label><textarea id="sessComm" rows={2} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"></textarea></div>
-                  <Button onClick={handleSaveSession} className="w-full bg-blue-600">Guardar Sesión</Button>
+                  <Button onClick={handleSaveSession} className="w-full bg-blue-600">Guardar SesiÃ³n</Button>
                 </CardContent>
               </Card>
               <div className="space-y-4">
                 <h3 className="text-white font-bold">Historial</h3>
                 {sessionHistory.length===0 ? <p className="text-zinc-500">Sin sesiones.</p> : sessionHistory.map((s:any)=>(
                   <Card key={s.id} className="bg-zinc-900 border-zinc-800">
-                    <CardHeader className="pb-2"><div className="flex justify-between"><span className="text-white font-bold">Sesión {s.session_number}: {s.module_topic}</span><Badge className={s.patient_status_score>=7?'bg-green-900':s.patient_status_score>=4?'bg-yellow-900':'bg-red-900'}>{s.patient_status_score}/10</Badge></div></CardHeader>
+                    <CardHeader className="pb-2"><div className="flex justify-between"><span className="text-white font-bold">SesiÃ³n {s.session_number}: {s.module_topic}</span><Badge className={s.patient_status_score>=7?'bg-green-900':s.patient_status_score>=4?'bg-yellow-900':'bg-red-900'}>{s.patient_status_score}/10</Badge>
+                <div className="flex gap-2">
+                  <button onClick={() => handleEditSession(s)} className="text-blue-400 hover:text-blue-300 p-1" title="Editar"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                  <button onClick={() => handleDeleteSession(s.id)} className="text-red-400 hover:text-red-300 p-1" title="Borrar"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                </div>
+              </div></CardHeader>
                     <CardContent className="text-sm text-zinc-300 space-y-1"><p><span className="text-zinc-500">Obs:</span> {s.clinical_observations}</p><p><span className="text-zinc-500">Comp:</span> {s.patient_commitments||'-'}</p></CardContent>
                   </Card>
                 ))}

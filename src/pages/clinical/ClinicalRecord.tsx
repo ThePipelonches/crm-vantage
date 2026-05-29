@@ -14,8 +14,9 @@ export default function ClinicalRecord() {
   const [patient, setPatient] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'data' | 'rol' | 'eval'>('data');
+  const [innerTab, setInnerTab] = useState<'protocol' | 'sessions'>('protocol');
   
-  // --- ESTADOS PARA GESTIÃ“N DE ESTADO DEL PACIENTE ---
+  // --- ESTADOS PARA GESTIÃƒâ€œN DE ESTADO DEL PACIENTE ---
   const [currentStatus, setCurrentStatus] = useState('active');
   const [statusDate, setStatusDate] = useState('');
   const [statusComment, setStatusComment] = useState('');
@@ -24,7 +25,7 @@ export default function ClinicalRecord() {
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
   const [savingStatus, setSavingStatus] = useState(false);
 
-  // --- ESTADOS PARA ROL (LÃ³gica intacta) ---
+  // --- ESTADOS PARA ROL (LÃƒÂ³gica intacta) ---
   const [rolLogs, setRolLogs] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
   const [newRisk, setNewRisk] = useState('low');
@@ -51,7 +52,7 @@ export default function ClinicalRecord() {
     finally { setLoading(false); }
   };
 
-  // --- LÃ“GICA DE CARGA DE ROL (INTACTA PARA RECUPERAR DATOS) ---
+  // --- LÃƒâ€œGICA DE CARGA DE ROL (INTACTA PARA RECUPERAR DATOS) ---
   const fetchRolLogs = async () => {
     try {
       const { data, error } = await supabase
@@ -64,7 +65,7 @@ export default function ClinicalRecord() {
 
       setRolLogs(data || []);
 
-      // TransformaciÃ³n segura para la grÃ¡fica (Soporta datos viejos y nuevos)
+      // TransformaciÃƒÂ³n segura para la grÃƒÂ¡fica (Soporta datos viejos y nuevos)
       const processedData = (data || []).map((log: any, index: number) => {
         const session = log.session_number ? parseInt(log.session_number) : index + 1;
         let riskVal = log.risk_numeric;
@@ -80,10 +81,10 @@ export default function ClinicalRecord() {
     } catch (err) { console.error("Error cargando ROL:", err); }
   };
 
-  // --- LÃ“GICA DE CARGA DE ESTADO ---
+  // --- LÃƒâ€œGICA DE CARGA DE ESTADO ---
   const fetchStatusHistory = async () => {
-    // Simulado: En producciÃ³n crearÃ­as una tabla 'patient_status_logs'
-    // Por ahora usamos los datos bÃ¡sicos del paciente si existen
+    // Simulado: En producciÃƒÂ³n crearÃƒÂ­as una tabla 'patient_status_logs'
+    // Por ahora usamos los datos bÃƒÂ¡sicos del paciente si existen
     if(patient && patient.status_changed_at) {
        setStatusHistory([{
          status: patient.status,
@@ -115,10 +116,10 @@ export default function ClinicalRecord() {
       const { error } = await supabase.from('patients').update(updateData).eq('id', patientId);
       if (error) throw error;
       
-      alert("âœ… Estado actualizado correctamente");
+      alert("Ã¢Å“â€¦ Estado actualizado correctamente");
       fetchPatientData(); // Recargar para ver cambios
     } catch (err: any) {
-      alert("âŒ Error: " + err.message);
+      alert("Ã¢ÂÅ’ Error: " + err.message);
     } finally {
       setSavingStatus(false);
     }
@@ -136,17 +137,52 @@ export default function ClinicalRecord() {
         action_plan: rolPlan
       }]);
       if (error) throw error;
-      alert("âœ… ROL guardado correctamente");
+      alert("Ã¢Å“â€¦ ROL guardado correctamente");
       setRolComment(''); setRolPlan('');
-      fetchRolLogs(); // Recargar grÃ¡fica
+      fetchRolLogs(); // Recargar grÃƒÂ¡fica
     } catch (err: any) {
-      alert("âŒ Error al guardar ROL: " + err.message);
+      alert("Ã¢ÂÅ’ Error al guardar ROL: " + err.message);
     } finally {
       setSavingRol(false);
     }
   };
 
-  if (loading) return <div className="p-6 text-white">Cargando historia clÃ­nica...</div>;
+
+  const handleSaveSession = async () => {
+    const num = (document.getElementById('sessNum') as HTMLInputElement).value;
+    const topic = (document.getElementById('sessTopic') as HTMLInputElement).value;
+    const obs = (document.getElementById('sessObs') as HTMLTextAreaElement).value;
+    const comm = (document.getElementById('sessComm') as HTMLTextAreaElement).value;
+    const score = (document.getElementById('sessScore') as HTMLInputElement).value;
+
+    if(!num || !topic) { alert("Completa al menos Número de Sesión y Tema"); return; }
+
+    try {
+      const { error } = await supabase.from('patient_sessions').insert([{
+        patient_id: patientId,
+        session_number: parseInt(num),
+        module_topic: topic,
+        clinical_observations: obs,
+        patient_commitments: comm,
+        patient_status_score: parseInt(score) || 0
+      }]);
+      if(error) throw error;
+      alert("✅ Sesión guardada");
+      // Limpiar campos
+      (document.getElementById('sessNum') as HTMLInputElement).value = '';
+      (document.getElementById('sessTopic') as HTMLInputElement).value = '';
+      (document.getElementById('sessObs') as HTMLTextAreaElement).value = '';
+      (document.getElementById('sessComm') as HTMLTextAreaElement).value = '';
+      (document.getElementById('sessScore') as HTMLInputElement).value = '';
+      fetchSessionHistory(); // Recargar lista
+    } catch(e: any) { alert("Error: " + e.message); }
+  };
+
+  const fetchSessionHistory = async () => {
+     const { data } = await supabase.from('patient_sessions').select('*').eq('patient_id', patientId).order('session_number', {ascending: true});
+     if(data) setSessionHistory(data);
+  };
+  if (loading) return <div className="p-6 text-white">Cargando historia clÃƒÂ­nica...</div>;
   if (!patient) return <div className="p-6 text-red-400">Paciente no encontrado.</div>;
 
   const getStatusColor = (status: string) => {
@@ -177,25 +213,25 @@ export default function ClinicalRecord() {
         </div>
       </div>
 
-      {/* Tabs de NavegaciÃ³n */}
+      {/* Tabs de NavegaciÃƒÂ³n */}
       <div className="flex gap-2 border-b border-zinc-800">
-        <button onClick={() => setActiveTab('data')} className={`pb-2 px-4 text-sm font-medium ${activeTab === 'data' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500'}`}>Datos ClÃ­nicos</button>
+        <button onClick={() => setActiveTab('data')} className={`pb-2 px-4 text-sm font-medium ${activeTab === 'data' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500'}`}>Datos ClÃƒÂ­nicos</button>
         <button onClick={() => setActiveTab('rol')} className={`pb-2 px-4 text-sm font-medium ${activeTab === 'rol' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500'}`}>ROL Semanal</button>
-        <button onClick={() => setActiveTab('eval')} className={`pb-2 px-4 text-sm font-medium ${activeTab === 'eval' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500'}`}>Evaluaciones PsicomÃ©tricas</button>
+        <button onClick={() => setActiveTab('eval')} className={`pb-2 px-4 text-sm font-medium ${activeTab === 'eval' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500'}`}>Evaluaciones PsicomÃƒÂ©tricas</button>
       </div>
 
       {/* CONTENIDO TABS */}
       {activeTab === 'eval' ? (
         <PsychometricEval patientId={patientId} />
       ) : activeTab === 'rol' ? (
-        // --- PESTAÃ‘A ROL (VisualizaciÃ³n Intacta) ---
+        // --- PESTAÃƒâ€˜A ROL (VisualizaciÃƒÂ³n Intacta) ---
         <div className="space-y-6 animate-in fade-in">
            <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader><CardTitle className="text-white flex items-center gap-2"><TrendingUp className="w-5 h-5 text-purple-500"/> Registro de Riesgo (ROL)</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="text-xs text-zinc-400">SesiÃ³n #</label>
+                  <label className="text-xs text-zinc-400">SesiÃƒÂ³n #</label>
                   <input type="number" value={sessionNum} onChange={(e) => setSessionNum(parseInt(e.target.value))} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
                 </div>
                 <div>
@@ -209,8 +245,8 @@ export default function ClinicalRecord() {
               </div>
               { (newRisk === 'medium' || newRisk === 'high') && (
                 <div className="space-y-2 bg-zinc-950 p-3 rounded border border-zinc-800">
-                   <input placeholder="Comentario: Â¿Por quÃ© este nivel?" value={rolComment} onChange={(e) => setRolComment(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-white"/>
-                   <textarea placeholder="Plan de AcciÃ³n para esta semana" value={rolPlan} onChange={(e) => setRolPlan(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-white h-20"/>
+                   <input placeholder="Comentario: Ã‚Â¿Por quÃƒÂ© este nivel?" value={rolComment} onChange={(e) => setRolComment(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-white"/>
+                   <textarea placeholder="Plan de AcciÃƒÂ³n para esta semana" value={rolPlan} onChange={(e) => setRolPlan(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-white h-20"/>
                 </div>
               )}
               <Button onClick={handleSaveRol} disabled={savingRol} className="w-full bg-blue-600 hover:bg-blue-700">
@@ -219,21 +255,21 @@ export default function ClinicalRecord() {
             </CardContent>
           </Card>
 
-          {/* GrÃ¡fica ROL */}
+          {/* GrÃƒÂ¡fica ROL */}
           <Card className="bg-zinc-900 border-zinc-800 h-80">
             <CardContent className="h-full flex items-center justify-center pt-6">
                {chartData.length > 0 ? (
                  <ResponsiveContainer width="100%" height="100%">
                    <LineChart data={chartData}>
                      <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                     <XAxis dataKey="session" stroke="#999" label={{ value: 'SesiÃ³n', position: 'insideBottom', offset: -5 }} />
+                     <XAxis dataKey="session" stroke="#999" label={{ value: 'SesiÃƒÂ³n', position: 'insideBottom', offset: -5 }} />
                      <YAxis stroke="#999" domain={[0, 4]} ticks={[1, 2, 3]} label={{ value: 'Riesgo', angle: -90, position: 'insideLeft' }} />
                      <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }} />
                      <Legend />
                      <Line type="monotone" dataKey="risk" stroke="#8884d8" strokeWidth={3} name="Nivel de Riesgo" dot={{ r: 6 }} />
                    </LineChart>
                  </ResponsiveContainer>
-               ) : <p className="text-zinc-500">Sin datos registrados aÃºn.</p>}
+               ) : <p className="text-zinc-500">Sin datos registrados aÃƒÂºn.</p>}
             </CardContent>
           </Card>
           
@@ -243,7 +279,7 @@ export default function ClinicalRecord() {
             {rolLogs.map((log: any) => (
               <div key={log.id} className="bg-zinc-900 border border-zinc-800 p-3 rounded flex justify-between items-center">
                 <div>
-                  <span className="text-white font-bold">SesiÃ³n {log.session_number}</span>
+                  <span className="text-white font-bold">SesiÃƒÂ³n {log.session_number}</span>
                   <span className={`ml-2 text-xs px-2 py-0.5 rounded ${log.risk_level === 'high' ? 'bg-red-900 text-red-300' : log.risk_level === 'medium' ? 'bg-yellow-900 text-yellow-300' : 'bg-green-900 text-green-300'}`}>
                     {log.risk_level.toUpperCase()}
                   </span>
@@ -257,25 +293,25 @@ export default function ClinicalRecord() {
           </div>
         </div>
       ) : (
-        // --- PESTAÃ‘A DATOS CLÃNICOS (Incluye NUEVA GestiÃ³n de Estado) ---
+        // --- PESTAÃƒâ€˜A DATOS CLÃƒÂNICOS (Incluye NUEVA GestiÃƒÂ³n de Estado) ---
         <div className="space-y-6 animate-in fade-in">
           
-          {/* Info Financiera BÃ¡sica */}
+          {/* Info Financiera BÃƒÂ¡sica */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader><CardTitle className="text-white">Resumen Financiero</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
                <div><p className="text-xs text-zinc-500">Valor Plan</p><p className="text-lg text-white">${patient.sale_total?.toLocaleString()}</p></div>
                <div><p className="text-xs text-zinc-500">Pagado</p><p className="text-lg text-green-400">${patient.cash_collected?.toLocaleString()}</p></div>
                <div><p className="text-xs text-zinc-500">Cuotas</p><p className="text-lg text-white">{patient.installments_count || 0}</p></div>
-               <div><p className="text-xs text-zinc-500">PrÃ³xima Cuota</p><p className="text-lg text-orange-400">${patient.installment_value?.toLocaleString()}</p></div>
+               <div><p className="text-xs text-zinc-500">PrÃƒÂ³xima Cuota</p><p className="text-lg text-orange-400">${patient.installment_value?.toLocaleString()}</p></div>
             </CardContent>
           </Card>
 
-          {/* --- NUEVA SECCIÃ“N: GESTIÃ“N DE ESTADO --- */}
+          {/* --- NUEVA SECCIÃƒâ€œN: GESTIÃƒâ€œN DE ESTADO --- */}
           <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-blue-500">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
-                <Activity className="w-5 h-5 text-blue-500" /> GestiÃ³n de Estado del Paciente
+                <Activity className="w-5 h-5 text-blue-500" /> GestiÃƒÂ³n de Estado del Paciente
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -308,18 +344,18 @@ export default function ClinicalRecord() {
               </div>
 
               <div>
-                <label className="text-xs text-zinc-400 block mb-1">Comentario / JustificaciÃ³n</label>
+                <label className="text-xs text-zinc-400 block mb-1">Comentario / JustificaciÃƒÂ³n</label>
                 <textarea 
                   value={statusComment} 
                   onChange={(e) => setStatusComment(e.target.value)}
-                  placeholder={currentStatus === 'deserter' ? "Explique por quÃ© se marca como desertor..." : "Motivo de inactividad..."}
+                  placeholder={currentStatus === 'deserter' ? "Explique por quÃƒÂ© se marca como desertor..." : "Motivo de inactividad..."}
                   className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white h-20"
                 />
               </div>
 
               {currentStatus === 'deserter' && (
                 <div>
-                  <label className="text-xs text-zinc-400 block mb-1 flex items-center gap-1"><Paperclip className="w-3 h-3"/> Pruebas de ComunicaciÃ³n (URL o Referencia)</label>
+                  <label className="text-xs text-zinc-400 block mb-1 flex items-center gap-1"><Paperclip className="w-3 h-3"/> Pruebas de ComunicaciÃƒÂ³n (URL o Referencia)</label>
                   <input 
                     type="text" 
                     value={statusEvidence} 
@@ -349,12 +385,12 @@ export default function ClinicalRecord() {
             </CardContent>
           </Card>
 
-          {/* Notas de EvoluciÃ³n (Existente) */}
+          {/* Notas de EvoluciÃƒÂ³n (Existente) */}
           <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader><CardTitle className="text-white flex items-center gap-2"><FileText className="w-5 h-5 text-purple-500"/> Notas de EvoluciÃ³n</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-white flex items-center gap-2"><FileText className="w-5 h-5 text-purple-500"/> Notas de EvoluciÃƒÂ³n</CardTitle></CardHeader>
             <CardContent>
               <div className="bg-zinc-950 p-4 rounded border border-zinc-800 min-h-[100px] text-zinc-400 text-sm">
-                {patient.notes ? <p className="whitespace-pre-wrap">{patient.notes}</p> : <p className="italic">Sin notas clÃ­nicas registradas aÃºn.</p>}
+                {patient.notes ? <p className="whitespace-pre-wrap">{patient.notes}</p> : <p className="italic">Sin notas clÃƒÂ­nicas registradas aÃƒÂºn.</p>}
               </div>
             </CardContent>
           </Card>

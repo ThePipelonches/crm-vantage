@@ -4,10 +4,10 @@ import { supabase } from '../../lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import {  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine , Cell } from 'recharts';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 
-// Configuración de escalas
+// ConfiguraciÃ³n de escalas
 const SCALES = {
   PCQ: [
     { key: 'self_efficacy', label: 'Autoeficacia' },
@@ -17,17 +17,17 @@ const SCALES = {
   ],
   MBI: [
     { key: 'emotional_exhaustion', label: 'Agotamiento Emocional' },
-    { key: 'depersonalization', label: 'Despersonalización' },
-    { key: 'personal_accomplishment', label: 'Realización Personal' }
+    { key: 'depersonalization', label: 'DespersonalizaciÃ³n' },
+    { key: 'personal_accomplishment', label: 'RealizaciÃ³n Personal' }
   ],
   DASS: [
-    { key: 'depression', label: 'Depresión' },
+    { key: 'depression', label: 'DepresiÃ³n' },
     { key: 'anxiety', label: 'Ansiedad' },
-    { key: 'stress', label: 'Estrés' }
+    { key: 'stress', label: 'EstrÃ©s' }
   ]
 };
 
-export default function PsychometricEval() {
+interface EvalProps { patientId: string; }\n\nexport default function PsychometricEval() {
   const { patientId } = useParams<{ patientId: string }>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -138,7 +138,7 @@ export default function PsychometricEval() {
       }
 
       // Upsert: Intentar actualizar si existe, o insertar si no
-      // Para simplificar, borramos los existentes de este paciente y重新insertamos todo (estrategia segura para MVP)
+      // Para simplificar, borramos los existentes de este paciente yé‡æ–°insertamos todo (estrategia segura para MVP)
       await supabase.from('psychometric_evaluations').delete().eq('patient_id', patientId);
       
       const { error } = await supabase.from('psychometric_evaluations').insert(recordsToInsert);
@@ -152,7 +152,7 @@ export default function PsychometricEval() {
     }
   };
 
-  // Preparar datos para la gráfica de forma DEFENSIVA
+  // Preparar datos para la grÃ¡fica de forma DEFENSIVA
   const getChartData = () => {
     const currentScale = selectedScale;
     if (!currentScale) return [];
@@ -215,11 +215,11 @@ export default function PsychometricEval() {
         </div>
       </div>
 
-      {/* Gráfica Comparativa */}
+      {/* GrÃ¡fica Comparativa */}
       <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
           <CardTitle className="text-white text-lg flex justify-between">
-            <span>Evolución: {SCALES[selectedTest as keyof typeof SCALES]?.find(s => s.key === selectedScale)?.label}</span>
+            <span>EvoluciÃ³n: {SCALES[selectedTest as keyof typeof SCALES]?.find(s => s.key === selectedScale)?.label}</span>
             <Badge variant="outline" className="border-zinc-700 text-zinc-400">Comparativa</Badge>
           </CardTitle>
         </CardHeader>
@@ -237,10 +237,10 @@ export default function PsychometricEval() {
                 <Legend />
                 <Bar dataKey="value" name="Puntaje" fill="#8884d8" radius={[4, 4, 0, 0]}>
                   {chartData.map((entry, index) => (
-                    <cell key={`cell-${index}`} fill={entry.fill} />
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
                 </Bar>
-                {/* Línea de referencia ejemplo (ajustable según prueba) */}
+                {/* LÃ­nea de referencia ejemplo (ajustable segÃºn prueba) */}
                 {selectedTest === 'DASS' && <ReferenceLine y={10} stroke="#ef4444" strokeDasharray="3 3" label="Umbral Moderado" />}
               </BarChart>
             </ResponsiveContainer>

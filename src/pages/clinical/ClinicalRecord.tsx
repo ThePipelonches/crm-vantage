@@ -15,7 +15,7 @@ export default function ClinicalRecord() {
   const [rolLogs, setRolLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Estado para pestañas principales
+  // Estado para pestaÃ±as principales
   const [activeTab, setActiveTab] = useState<'data' | 'rol' | 'eval'>('data');
 
   // Estados para formulario ROL
@@ -60,10 +60,10 @@ export default function ClinicalRecord() {
     if (!patientId) return;
     setSavingRol(true);
     
-    // Calcular sesión siguiente
+    // Calcular sesiÃ³n siguiente
     const nextSession = (rolLogs.length > 0 ? Math.max(...rolLogs.map((l: any) => l.session_number || 0)) : 0) + 1;
     
-    // Mapeo de riesgo texto a número
+    // Mapeo de riesgo texto a nÃºmero
     const riskMap: Record<string, number> = { 'low': 1, 'medium': 2, 'high': 3 };
     const riskNum = riskMap[newRisk] || 1;
 
@@ -80,18 +80,18 @@ export default function ClinicalRecord() {
 
       if (error) throw error;
 
-      alert('✅ ROL guardado correctamente');
+      alert('âœ… ROL guardado correctamente');
       setCommentText('');
       setPlanText('');
-      fetchData(); // Recargar gráfica
+      fetchData(); // Recargar grÃ¡fica
     } catch (err: any) {
-      alert('❌ Error: ' + err.message);
+      alert('âŒ Error: ' + err.message);
     } finally {
       setSavingRol(false);
     }
   };
 
-  // Preparar datos para la gráfica (Compatibilidad Legacy)
+  // Preparar datos para la grÃ¡fica (Compatibilidad Legacy)
   const chartData = (rolLogs || []).map((log: any, index: number) => {
     const session = log.session_number ? parseInt(log.session_number) : index + 1;
     let riskVal = log.risk_numeric;
@@ -107,7 +107,7 @@ export default function ClinicalRecord() {
     return { session, risk: riskVal, level: log.risk_level };
   });
 
-  if (loading) return <div className="p-6 text-white">Cargando historia clínica...</div>;
+  if (loading) return <div className="p-6 text-white">Cargando historia clÃ­nica...</div>;
   if (!patient) return <div className="p-6 text-red-400">Paciente no encontrado.</div>;
 
   const getStatusColor = (status: string) => {
@@ -140,21 +140,21 @@ export default function ClinicalRecord() {
         </div>
       </div>
 
-      {/* Pestañas Principales */}
+      {/* PestaÃ±as Principales */}
       <div className="flex gap-2 border-b border-zinc-800">
-        <button onClick={() => setActiveTab('data')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'data' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>Datos Clínicos</button>
+        <button onClick={() => setActiveTab('data')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'data' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>Datos ClÃ­nicos</button>
         <button onClick={() => setActiveTab('rol')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'rol' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>ROL Semanal</button>
         <button onClick={() => setActiveTab('eval')} className={`pb-3 px-4 text-sm font-medium transition-colors ${activeTab === 'eval' ? 'text-white border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}>Evaluaciones</button>
       </div>
 
-      {/* Contenido Dinámico */}
+      {/* Contenido DinÃ¡mico */}
       {activeTab === 'eval' ? (
         <PsychometricEval patientId={patientId} />
       ) : activeTab === 'rol' ? (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
           {/* Formulario ROL */}
           <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader><CardTitle className="text-white flex items-center gap-2"><Activity className="w-5 h-5 text-purple-500"/> Registrar Nueva Sesión (Sesión {rolLogs.length + 1})</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-white flex items-center gap-2"><Activity className="w-5 h-5 text-purple-500"/> Registrar Nueva SesiÃ³n (SesiÃ³n {rolLogs.length + 1})</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -170,11 +170,11 @@ export default function ClinicalRecord() {
               {(newRisk === 'medium' || newRisk === 'high') && (
                 <div className="space-y-4 p-4 bg-zinc-950/50 rounded border border-zinc-800 animate-in fade-in">
                   <div>
-                    <label className="block text-sm text-zinc-400 mb-1">Comentarios (¿Por qué este nivel?)</label>
+                    <label className="block text-sm text-zinc-400 mb-1">Comentarios (Â¿Por quÃ© este nivel?)</label>
                     <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded p-2 h-20" placeholder="Describa los indicadores observados..." />
                   </div>
                   <div>
-                    <label className="block text-sm text-zinc-400 mb-1">Plan de Acción</label>
+                    <label className="block text-sm text-zinc-400 mb-1">Plan de AcciÃ³n</label>
                     <textarea value={planText} onChange={(e) => setPlanText(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded p-2 h-20" placeholder="Estrategias para esta semana..." />
                   </div>
                 </div>
@@ -186,19 +186,19 @@ export default function ClinicalRecord() {
             </CardContent>
           </Card>
 
-          {/* Gráfica ROL */}
+          {/* GrÃ¡fica ROL */}
           <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader><CardTitle className="text-white flex items-center gap-2"><TrendingUp className="w-5 h-5 text-green-500"/> Evolución del Riesgo por Sesión</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-white flex items-center gap-2"><TrendingUp className="w-5 h-5 text-green-500"/> EvoluciÃ³n del Riesgo por SesiÃ³n</CardTitle></CardHeader>
             <CardContent className="h-[300px]">
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                    <XAxis dataKey="session" stroke="#999" label={{ value: 'Sesión', position: 'insideBottom', offset: -5 }} />
+                    <XAxis dataKey="session" stroke="#999" label={{ value: 'SesiÃ³n', position: 'insideBottom', offset: -5 }} />
                     <YAxis stroke="#999" domain={[0, 4]} ticks={[1, 2, 3]} label={{ value: 'Riesgo', angle: -90, position: 'insideLeft' }} />
                     <Tooltip 
                       contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }}
-                      labelFormatter={(val) => `Sesión ${val}`}
+                      labelFormatter={(val) => `SesiÃ³n ${val}`}
                       formatter={(val: number) => {
                         if (val === 1) return ['Bajo', 'Riesgo'];
                         if (val === 2) return ['Medio', 'Riesgo'];
@@ -206,18 +206,18 @@ export default function ClinicalRecord() {
                         return [val, 'Riesgo'];
                       }}
                     />
-                    <ReferenceLine y={1.5} stroke="#4ade80" strokeDasharray="3 3" label={{ value: 'Límite Bajo', fill: '#4ade80', fontSize: 12 }} />
-                    <ReferenceLine y={2.5} stroke="#fbbf24" strokeDasharray="3 3" label={{ value: 'Límite Medio', fill: '#fbbf24', fontSize: 12 }} />
+                    <ReferenceLine y={1.5} stroke="#4ade80" strokeDasharray="3 3" label={{ value: 'LÃ­mite Bajo', fill: '#4ade80', fontSize: 12 }} />
+                    <ReferenceLine y={2.5} stroke="#fbbf24" strokeDasharray="3 3" label={{ value: 'LÃ­mite Medio', fill: '#fbbf24', fontSize: 12 }} />
                     <Line type="monotone" dataKey="risk" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 6, fill: '#8b5cf6' }} activeDot={{ r: 8 }} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-zinc-500">Sin datos registrados aún</div>
+                <div className="h-full flex items-center justify-center text-zinc-500">Sin datos registrados aÃºn</div>
               )}
             </CardContent>
           </Card>
 
-          {/* Tabla Histórica */}
+          {/* Tabla HistÃ³rica */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader><CardTitle className="text-white">Historial de Registros</CardTitle></CardHeader>
             <CardContent>
@@ -225,10 +225,10 @@ export default function ClinicalRecord() {
                 <table className="w-full text-sm text-left text-zinc-400">
                   <thead className="text-xs uppercase bg-zinc-950 text-zinc-500">
                     <tr>
-                      <th className="px-4 py-3">Sesión</th>
+                      <th className="px-4 py-3">SesiÃ³n</th>
                       <th className="px-4 py-3">Riesgo</th>
                       <th className="px-4 py-3">Comentarios</th>
-                      <th className="px-4 py-3">Plan de Acción</th>
+                      <th className="px-4 py-3">Plan de AcciÃ³n</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -251,14 +251,14 @@ export default function ClinicalRecord() {
           </Card>
         </div>
       ) : (
-        /* Pestaña Datos Clínicos */
+        /* PestaÃ±a Datos ClÃ­nicos */
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
           <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
                   <CardTitle className="text-xl text-white flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-blue-500" /> Información Financiera
+                    <FileText className="w-5 h-5 text-blue-500" /> InformaciÃ³n Financiera
                   </CardTitle>
                 </div>
               </div>

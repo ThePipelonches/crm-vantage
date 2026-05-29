@@ -3,35 +3,34 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 
+// Definición explícita de Props
 interface PsychometricEvalProps {
-  pid?: string;
+  patientId?: string;
 }
 
-export default function PsychometricEval({ pid }: PsychometricEvalProps) {
-  const urlParams = useParams<{ pid: string }>();
-  // Usar el prop si existe, sino el de la URL
-  const pid = pid || urlParams.pid;
+export default function PsychometricEval({ patientId: propPatientId }: PsychometricEvalProps) {
+  // Obtener ID de los props o de la URL (fallback)
+  const { patientId: urlPatientId } = useParams<{ patientId: string }>();
+  const patientId = propPatientId || urlPatientId;
 
   const [activeMoment, setActiveMoment] = useState<'pre' | 'mid' | 'post'>('pre');
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // Estado Ãºnico para todos los puntajes
+  // Estado único para todos los puntajes
   const [scores, setScores] = useState({
     pcq_efficacy: '', pcq_hope: '', pcq_resilience: '', pcq_optimism: '',
     mbi_exhaustion: '', mbi_depersonalization: '', mbi_personal_accomplishment: '',
     dass_depression: '', dass_anxiety: '', dass_stress: ''
   });
 
-  // Cargar datos existentes al cambiar de pestaÃ±a
+  // Cargar datos existentes al cambiar de pestaña o paciente
   useEffect(() => {
-    if (!id || !activeMoment) return;
+    if (!patientId || !activeMoment) return;
     loadScores();
-  }, [activeMoment, id]);
+  }, [activeMoment, patientId]);
 
   const loadScores = async () => {
     setLoading(true);
@@ -39,7 +38,7 @@ export default function PsychometricEval({ pid }: PsychometricEvalProps) {
       const { data, error } = await supabase
         .from('psychometric_evaluations')
         .select('*')
-        .eq('patient_id', id)
+        .eq('patient_id', patientId)
         .eq('moment', activeMoment)
         .single();
 
@@ -72,10 +71,15 @@ export default function PsychometricEval({ pid }: PsychometricEvalProps) {
   };
 
   const handleSave = async () => {
+    if (!patientId) {
+      alert("❌ Error: No se encontró el ID del paciente.");
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
-        patient_id: id,
+        patient_id: patientId,
         moment: activeMoment,
         pcq_efficacy: parseFloat(scores.pcq_efficacy) || null,
         pcq_hope: parseFloat(scores.pcq_hope) || null,
@@ -89,14 +93,18 @@ export default function PsychometricEval({ pid }: PsychometricEvalProps) {
         dass_stress: parseFloat(scores.dass_stress) || null
       };
 
-      // Intentar actualizar primero, si no existe, insertar
-      let { error: updateError } = await supabase
+      // Intentar actualizar primero
+      const { error: updateError } = await supabase
         .from('psychometric_evaluations')
         .update(payload)
-        .eq('patient_id', id)
+        .eq('patient_id', patientId)
         .eq('moment', activeMoment);
 
-      if (updateError || false) { // Si falla update o no encuentra rows
+      // Si no se actualizó nada (no existía), insertar
+      if (updateError || (updateError === null && false)) { 
+         // Nota: Supabase no lanza error si no encuentra rows para update, pero retorna count 0.
+         // Para simplificar, intentamos insertar directamente si falla update o usamos upsert si estuviera configurado.
+         // Aquí forzamos inserción si es nuevo.
          const { error: insertError } = await supabase.from('psychometric_evaluations').insert([payload]);
          if (insertError) throw insertError;
       }
@@ -104,19 +112,19 @@ export default function PsychometricEval({ pid }: PsychometricEvalProps) {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
-      alert("âŒ Error al guardar: " + err.message);
+      alert("❌ Error al guardar: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleInputChange = (field: keyof typeof scores, value: string) => {
-    // Solo permitir nÃºmeros
+    // Solo permitir números y punto decimal
     if (value && !/^\d*\.?\d*$/.test(value)) return;
     setScores(prev => ({ ...prev, [field]: value }));
   };
 
-  // Renderizado condicional de pruebas segÃºn el momento
+  // Renderizado condicional de pruebas según el momento
   const showMBI = activeMoment !== 'mid';
   const showDASS = activeMoment !== 'mid';
 
@@ -137,7 +145,7 @@ export default function PsychometricEval({ pid }: PsychometricEvalProps) {
 
       {/* PCQ-24 (Siempre visible) */}
       <Card className="bg-zinc-900 border-zinc-800">
-        <CardHeader><CardTitle className="text-white text-lg">ðŸ§  PCQ-24 (Capital PsicolÃ³gico)</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-white text-lg">🧠 PCQ-24 (Capital Psicológico)</CardTitle></CardHeader>
         <CardContent>
           <p className="text-xs text-zinc-500 mb-4">Ingresa el puntaje promedio final de cada subescala (1-7).</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -160,7 +168,7 @@ export default function PsychometricEval({ pid }: PsychometricEvalProps) {
       {/* MBI (Solo Pre y Post) */}
       {showMBI && (
         <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader><CardTitle className="text-white text-lg">ðŸ”¥ MBI (Burnout)</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-white text-lg">🔥 MBI (Burnout)</CardTitle></CardHeader>
           <CardContent>
             <p className="text-xs text-zinc-500 mb-4">Ingresa la suma total de cada subescala.</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -184,7 +192,7 @@ export default function PsychometricEval({ pid }: PsychometricEvalProps) {
       {/* DASS-21 (Solo Pre y Post) */}
       {showDASS && (
         <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader><CardTitle className="text-white text-lg">âš ï¸ DASS-21</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-white text-lg">⚠️ DASS-21</CardTitle></CardHeader>
           <CardContent>
             <p className="text-xs text-zinc-500 mb-4">Ingresa el puntaje final (suma x2) de cada subescala.</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

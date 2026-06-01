@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { ArrowLeft, User, Mail, Activity, FileText, Save, TrendingUp, Edit2, Trash2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, Calendar, Briefcase, Activity, FileText, Save, TrendingUp, Edit2, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -17,6 +17,13 @@ export default function ClinicalRecord() {
   // Tabs
   const [activeTab, setActiveTab] = useState<'data' | 'rol' | 'eval'>('data');
   const [innerTab, setInnerTab] = useState<'protocol' | 'sessions'>('protocol');
+
+  // Estados Sociodemográficos (Editables)
+  const [demoPhone, setDemoPhone] = useState('');
+  const [demoBirthDate, setDemoBirthDate] = useState('');
+  const [demoOccupation, setDemoOccupation] = useState('');
+  const [demoMaritalStatus, setDemoMaritalStatus] = useState('');
+  const [savingDemo, setSavingDemo] = useState(false);
 
   // Estados Gestión Estado
   const [currentStatus, setCurrentStatus] = useState('active');
@@ -61,6 +68,12 @@ export default function ClinicalRecord() {
       if (error) throw error;
       setPatient(data);
       setCurrentStatus(data.status || 'active');
+      
+      // Cargar datos sociodemográficos si existen
+      setDemoPhone(data.phone || '');
+      setDemoBirthDate(data.birth_date ? new Date(data.birth_date).toISOString().split('T')[0] : '');
+      setDemoOccupation(data.occupation || '');
+      setDemoMaritalStatus(data.marital_status || '');
     } catch (err) { console.error("Error paciente:", err); } 
     finally { setLoading(false); }
   };
@@ -106,6 +119,22 @@ export default function ClinicalRecord() {
       const { data, error } = await supabase.from('patient_sessions').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
       if (!error && data) setSessionHistory(data);
     } catch (err) { console.error("Error sesiones:", err); }
+  };
+
+  const handleSaveDemographics = async () => {
+    setSavingDemo(true);
+    try {
+      const { error } = await supabase.from('patients').update({
+        phone: demoPhone,
+        birth_date: demoBirthDate || null,
+        occupation: demoOccupation,
+        marital_status: demoMaritalStatus
+      }).eq('id', patientId);
+      
+      if (error) throw error;
+      alert("✅ Datos sociodemográficos actualizados");
+    } catch (err: any) { alert("❌ Error: " + err.message); }
+    finally { setSavingDemo(false); }
   };
 
   const handleSaveStatus = async () => {
@@ -256,7 +285,6 @@ export default function ClinicalRecord() {
         <PsychometricEval patientId={patientId} />
       ) : activeTab === 'rol' ? (
         <div className="space-y-6 animate-in fade-in">
-          {/* Formulario ROL */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader><CardTitle className="text-white">Registro ROL</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -268,7 +296,7 @@ export default function ClinicalRecord() {
               </div>
               {(newRisk==='medium'||newRisk==='high') && (
                 <>
-                  <input placeholder="Comentario: ¿Por qué este nivel?" value={rolComment} onChange={e=>setRolComment(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
+                  <input placeholder="Comentario (¿Por qué este nivel?)" value={rolComment} onChange={e=>setRolComment(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
                   <textarea placeholder="Plan de Acción para esta semana" value={rolPlan} onChange={e=>setRolPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white h-20"/>
                 </>
               )}
@@ -276,7 +304,7 @@ export default function ClinicalRecord() {
             </CardContent>
           </Card>
           
-          {/* Gráfica */}
+          {/* GRÁFICA DE COLORES */}
           <Card className="bg-zinc-900 border-zinc-800 h-72">
             <CardContent className="h-full pt-6">
               {chartData.length > 0 ? (
@@ -285,64 +313,72 @@ export default function ClinicalRecord() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                     <XAxis dataKey="session" stroke="#999" label={{ value: 'Sesión', position: 'insideBottom', offset: -5 }} />
                     <YAxis stroke="#999" ticks={[1, 2, 3]} tickFormatter={(val) => val === 1 ? 'Bajo' : val === 2 ? 'Medio' : 'Alto'} width={60} />
-                    <Tooltip contentStyle={{backgroundColor:'#18181b', borderColor:'#333', color:'#fff'}} formatter={(value: number, name: string, props: any) => [<span style={{color: props.payload.riskColor}}>{props.payload.riskLabel}</span>, 'Riesgo']} />
-                    <Line type="monotone" dataKey="risk" stroke="#8884d8" strokeWidth={2} dot={(props: any) => {
+                    <Tooltip 
+                      contentStyle={{backgroundColor:'#18181b', borderColor:'#333', color:'#fff'}}
+                      formatter={(value: number, name: string, props: any) => [
+                        <span style={{color: props.payload.riskColor}}>{props.payload.riskLabel}</span>, 
+                        'Nivel de Riesgo'
+                      ]}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="risk" 
+                      stroke="#8884d8" 
+                      strokeWidth={2} 
+                      dot={(props: any) => {
                         const { cx, cy, payload } = props;
-                        return <circle cx={cx} cy={cy} r={6} fill={payload.riskColor} stroke="#fff" strokeWidth={2} />;
-                      }} />
+                        return (
+                          <circle cx={cx} cy={cy} r={6} fill={payload.riskColor} stroke="#fff" strokeWidth={2} />
+                        );
+                      }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               ) : <p className="text-zinc-500 text-center">Sin datos registrados aún.</p>}
             </CardContent>
           </Card>
 
-          {/* Historial Detallado (CORREGIDO) */}
+          {/* HISTORIAL DETALLADO */}
           <div className="space-y-4">
-            <h3 className="text-white font-bold text-lg flex items-center gap-2"><FileText className="w-5 h-5"/> Historial de Registros</h3>
+            <h3 className="text-white font-bold text-lg">Historial de Registros</h3>
             {rolLogs.length === 0 ? <p className="text-zinc-500">No hay registros aún.</p> : 
-              rolLogs.map((log: any) => {
-                const isHigh = log.risk_level === 'high';
-                const isMed = log.risk_level === 'medium';
-                const badgeColor = isHigh ? 'bg-red-900 text-red-300 border-red-800' : isMed ? 'bg-yellow-900 text-yellow-300 border-yellow-800' : 'bg-green-900 text-green-300 border-green-800';
-                
-                return (
-                  <Card key={log.id} className="bg-zinc-900 border-zinc-800 overflow-hidden">
-                    <CardHeader className="py-3 border-b border-zinc-800 bg-zinc-950/50">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                          <span className="text-white font-bold text-lg">Sesión #{log.session_number}</span>
-                          <Badge className={`${badgeColor} border px-3 py-1`}>
-                            {isHigh ? '🔴 Riesgo Alto' : isMed ? '🟡 Riesgo Medio' : '🟢 Riesgo Bajo'}
-                          </Badge>
-                        </div>
-                        <span className="text-xs text-zinc-500">{new Date(log.created_at).toLocaleDateString()}</span>
+              rolLogs.map((log: any) => (
+                <Card key={log.id} className="bg-zinc-900 border-zinc-800">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-bold text-lg">Sesión {log.session_number}</span>
+                        <Badge className={log.risk_level === 'high' ? 'bg-red-900 text-red-300' : log.risk_level === 'medium' ? 'bg-yellow-900 text-yellow-300' : 'bg-green-900 text-green-300'}>
+                          {log.risk_level === 'high' ? 'ALTO' : log.risk_level === 'medium' ? 'MEDIO' : 'BAJO'}
+                        </Badge>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-4 space-y-3">
-                      {(isHigh || isMed) ? (
-                        <>
-                          <div>
-                            <p className="text-xs text-zinc-400 uppercase font-bold mb-1 flex items-center gap-1"><AlertTriangle size={12}/> Justificación:</p>
-                            <p className="text-zinc-300 text-sm bg-zinc-950 p-2 rounded border border-zinc-800">{log.comments || 'Sin comentario'}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-zinc-400 uppercase font-bold mb-1 flex items-center gap-1"><CheckCircle size={12}/> Plan de Acción:</p>
-                            <p className="text-zinc-300 text-sm bg-zinc-950 p-2 rounded border border-zinc-800">{log.action_plan || 'Sin plan definido'}</p>
-                          </div>
-                        </>
-                      ) : (
-                        <p className="text-zinc-400 text-sm italic">Riesgo bajo. Sin observaciones adicionales requeridas.</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })
+                      <span className="text-xs text-zinc-500">{new Date(log.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    {log.comments && (
+                      <div>
+                        <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Comentario / Justificación:</p>
+                        <p className="text-zinc-300 bg-zinc-950 p-2 rounded border border-zinc-800">{log.comments}</p>
+                      </div>
+                    )}
+                    {log.action_plan && (
+                      <div>
+                        <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Plan de Acción:</p>
+                        <p className="text-zinc-300 bg-zinc-950 p-2 rounded border border-zinc-800">{log.action_plan}</p>
+                      </div>
+                    )}
+                    {!log.comments && !log.action_plan && <p className="text-zinc-500 italic">Sin detalles adicionales.</p>}
+                  </CardContent>
+                </Card>
+              ))
             }
           </div>
         </div>
       ) : (
         /* --- DATOS CLÍNICOS --- */
         <div className="space-y-6 animate-in fade-in">
+          {/* Sub-Tabs Internas */}
           <div className="flex gap-2 mb-4 pl-4 border-l-2 border-blue-500">
             <button onClick={()=>setInnerTab('protocol')} className={`text-sm px-3 py-1 rounded ${innerTab==='protocol'?'bg-zinc-800 text-white':'text-zinc-500'}`}>Protocolo Neuro-Apogeo</button>
             <button onClick={()=>setInnerTab('sessions')} className={`text-sm px-3 py-1 rounded ${innerTab==='sessions'?'bg-zinc-800 text-white':'text-zinc-500'}`}>Historial de Sesiones</button>
@@ -350,6 +386,43 @@ export default function ClinicalRecord() {
 
           {innerTab === 'protocol' ? (
             <div className="space-y-6">
+              
+              {/* NUEVO: DATOS SOCIODEMOGRÁFICOS EDITABLES */}
+              <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-purple-500">
+                <CardHeader><CardTitle className="text-white flex items-center gap-2"><User className="w-5 h-5 text-purple-400"/> Datos Sociodemográficos</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-zinc-400 flex items-center gap-1"><Phone className="w-3 h-3"/> Teléfono</label>
+                      <input type="text" value={demoPhone} onChange={e=>setDemoPhone(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-400 flex items-center gap-1"><Calendar className="w-3 h-3"/> Fecha de Nacimiento</label>
+                      <input type="date" value={demoBirthDate} onChange={e=>setDemoBirthDate(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-400 flex items-center gap-1"><Briefcase className="w-3 h-3"/> Ocupación</label>
+                      <input type="text" value={demoOccupation} onChange={e=>setDemoOccupation(e.target.value)} placeholder="Ej: Empresario, Estudiante..." className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-400">Estado Civil</label>
+                      <select value={demoMaritalStatus} onChange={e=>setDemoMaritalStatus(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white">
+                        <option value="">Seleccionar...</option>
+                        <option value="Soltero">Soltero/a</option>
+                        <option value="Casado">Casado/a</option>
+                        <option value="Divorciado">Divorciado/a</option>
+                        <option value="Viudo">Viudo/a</option>
+                        <option value="Union Libre">Unión Libre</option>
+                      </select>
+                    </div>
+                  </div>
+                  <Button onClick={handleSaveDemographics} disabled={savingDemo} className="w-full bg-purple-700 hover:bg-purple-600 text-white">
+                    {savingDemo ? 'Guardando...' : 'Actualizar Datos Sociodemográficos'}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Gestión de Estado */}
               <Card className="bg-zinc-900 border-zinc-800">
                 <CardHeader><CardTitle className="text-white text-sm">Gestión Rápida de Estado</CardTitle></CardHeader>
                 <CardContent className="flex gap-4 items-end">
@@ -358,13 +431,17 @@ export default function ClinicalRecord() {
                 </CardContent>
               </Card>
 
+              {/* Formulario Protocolo Editable */}
               <div className="space-y-4">
                 <div><label className="text-xs text-blue-400 font-bold block mb-1">I. DATOS DE FILIACIÓN</label><textarea value={protoAffiliation} onChange={e=>setProtoAffiliation(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-32"/></div>
                 <div><label className="text-xs text-blue-400 font-bold block mb-1">II. EVALUACIÓN CAPITAL MENTAL</label><textarea value={protoMentalCapital} onChange={e=>setProtoMentalCapital(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
                 <div><label className="text-xs text-blue-400 font-bold block mb-1">III. DIAGNÓSTICO FUNCIONAL</label><textarea value={protoDiagnosis} onChange={e=>setProtoDiagnosis(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
                 <div><label className="text-xs text-blue-400 font-bold block mb-1">IV. ANÁLISIS POR EJES</label><textarea value={protoAxes} onChange={e=>setProtoAxes(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-64"/></div>
                 <div><label className="text-xs text-blue-400 font-bold block mb-1">V. PLAN DE TRATAMIENTO</label><textarea value={protoPlan} onChange={e=>setProtoPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
-                <Button onClick={handleSaveProtocol} disabled={savingProto} className="w-full bg-green-700 hover:bg-green-600 text-white py-4 text-lg font-bold">{savingProto ? 'Guardando...' : '💾 GUARDAR HISTORIA CLÍNICA COMPLETA'}</Button>
+                
+                <Button onClick={handleSaveProtocol} disabled={savingProto} className="w-full bg-green-700 hover:bg-green-600 text-white py-4 text-lg font-bold">
+                  {savingProto ? 'Guardando...' : '💾 GUARDAR HISTORIA CLÍNICA COMPLETA'}
+                </Button>
               </div>
             </div>
           ) : (

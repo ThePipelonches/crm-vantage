@@ -6,40 +6,41 @@ import {
   LogOut, UserPlus, Activity, FileText 
 } from 'lucide-react';
 
-// Páginas
+// PÃ¡ginas
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/admin/Dashboard';
 import LeadsPage from './pages/leads/Leads';
 import PatientsPage from './pages/patients/PatientsPage';
 import CommercialDashboard from './pages/commercial/Dashboard';
 import PsychologistDashboard from './pages/psychologist/Dashboard';
+import ClinicalDashboard from './pages/admin/ClinicalDashboard';
 import ClinicalRecord from './pages/clinical/ClinicalRecord';
 
-// Componente de Protección de Rutas (CORREGIDO PARA NO SACAR AL USUARIO)
+// Componente de ProtecciÃ³n de Rutas (CORREGIDO PARA NO SACAR AL USUARIO)
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, loading, role } = useAuth();
 
-  // 1. Si está cargando, MOSTRAMOS el spinner y NO redirigimos
+  // 1. Si estÃ¡ cargando, MOSTRAMOS el spinner y NO redirigimos
   if (loading) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-black text-white">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
-        <p className="text-zinc-400 animate-pulse">Verificando sesión segura...</p>
+        <p className="text-zinc-400 animate-pulse">Verificando sesiÃ³n segura...</p>
       </div>
     );
   }
 
-  // 2. Solo si YA terminó de cargar y NO hay usuario, redirigimos a login
+  // 2. Solo si YA terminÃ³ de cargar y NO hay usuario, redirigimos a login
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // 3. Verificación de roles
+  // 3. VerificaciÃ³n de roles
   if (allowedRoles.length > 0 && !allowedRoles.includes(role || '')) {
     return <Navigate to="/" replace />;
   }
 
-  // 4. Si todo está bien, renderizamos la página
+  // 4. Si todo estÃ¡ bien, renderizamos la pÃ¡gina
   return <>{children}</>;
 }
 
@@ -58,7 +59,7 @@ function MainLayout() {
     localStorage.setItem('sidebar_state', JSON.stringify(isSidebarOpen));
   }, [isSidebarOpen]);
 
-  if (!user) return null; // Evita parpadeo, ProtectedRoute maneja la redirección
+  if (!user) return null; // Evita parpadeo, ProtectedRoute maneja la redirecciÃ³n
 
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin'] },
@@ -116,10 +117,10 @@ function MainLayout() {
             onClick={() => signOut()}
             className={`w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-colors
               ${!isSidebarOpen ? 'justify-center' : ''}`}
-            title={!isSidebarOpen ? 'Cerrar Sesión' : ''}
+            title={!isSidebarOpen ? 'Cerrar SesiÃ³n' : ''}
           >
             <LogOut size={20} className="shrink-0" />
-            {isSidebarOpen && <span>Cerrar Sesión</span>}
+            {isSidebarOpen && <span>Cerrar SesiÃ³n</span>}
           </button>
         </div>
       </aside>

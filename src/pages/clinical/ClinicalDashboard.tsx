@@ -43,7 +43,7 @@ export default function ClinicalDashboard() {
         totalPatients: total,
         deserterCount: deserters,
         deserterPercentage: parseFloat(percentage),
-        sessionsThisMonth: count || 0
+        sessionsThisMonth: Number(count || 0)
       });
     } catch (err) {
       console.error("Error stats:", err);
@@ -92,7 +92,7 @@ export default function ClinicalDashboard() {
 
   return (
     <div className="p-6 space-y-6 animate-in fade-in">
-      <h1 className="text-3xl font-bold text-white mb-6">Dashboard ClÃƒÂ­nico</h1>
+      <h1 className="text-3xl font-bold text-white mb-6">Dashboard ClÃƒÆ’Ã‚Â­nico</h1>
 
       {/* Tarjetas Superiores */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -108,7 +108,7 @@ export default function ClinicalDashboard() {
 
         <Card className="bg-zinc-900 border-zinc-800">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Tasa de DeserciÃƒÂ³n</CardTitle>
+            <CardTitle className="text-sm font-medium text-zinc-400">Tasa de DeserciÃƒÆ’Ã‚Â³n</CardTitle>
             <TrendingDown className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
@@ -129,7 +129,7 @@ export default function ClinicalDashboard() {
 
         <Card className="bg-zinc-900 border-zinc-800">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">AÃƒÂ±o Actual</CardTitle>
+            <CardTitle className="text-sm font-medium text-zinc-400">AÃƒÆ’Ã‚Â±o Actual</CardTitle>
             <Calendar className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
@@ -139,7 +139,7 @@ export default function ClinicalDashboard() {
         </Card>
       </div>
 
-      {/* GrÃƒÂ¡fica Trimestral */}
+      {/* GrÃƒÆ’Ã‚Â¡fica Trimestral */}
       <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
           <CardTitle className="text-white">Pacientes Ingresados por Trimestre</CardTitle>

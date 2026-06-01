@@ -12,16 +12,16 @@ export default function ClinicalRecord() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
   
-  // Estados Generales
+  // Estados Principales
   const [patient, setPatient] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Tabs
   const [activeTab, setActiveTab] = useState<'data' | 'rol' | 'eval'>('data');
   const [innerTab, setInnerTab] = useState<'protocol' | 'sessions'>('protocol');
 
-  // Estados Gestión Estado
+  // Estados Gestión Estado Paciente
   const [currentStatus, setCurrentStatus] = useState('active');
   const [statusDate, setStatusDate] = useState('');
   const [statusComment, setStatusComment] = useState('');
@@ -49,98 +49,122 @@ export default function ClinicalRecord() {
   const [sessionHistory, setSessionHistory] = useState<any[]>([]);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
 
-  // Carga Inicial Blindada
+  // --- CARGA DE DATOS PRINCIPAL (BLINDADA) ---
   useEffect(() => {
     const loadData = async () => {
       if (!patientId) return;
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
-        setError(null);
-        
-        // 1. Cargar Paciente
-        const { data: patData, error: patErr } = await supabase.from('patients').select('*').eq('id', patientId).single();
-        if (patErr) throw patErr;
-        setPatient(patData);
-        setCurrentStatus(patData.status || 'active');
-
-        // 2. Cargar ROL
-        const { data: rolData, error: rolErr } = await supabase.from('patient_rol_logs').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
-        if (!rolErr && rolData) {
-          setRolLogs(rolData);
-          const processed = rolData.map((log: any, i: number) => {
-            const session = log.session_number || i + 1;
-            let riskVal = log.risk_numeric;
-            if (riskVal === null || riskVal === undefined) {
-              riskVal = log.risk_level === 'high' ? 3 : log.risk_level === 'medium' ? 2 : 1;
-            }
-            return { session, risk: riskVal, riskLabel: riskVal === 1 ? 'Bajo' : riskVal === 2 ? 'Medio' : 'Alto', riskColor: riskVal === 1 ? '#4ade80' : riskVal === 2 ? '#facc15' : '#f87171' };
-          });
-          setChartData(processed);
-        }
-
-        // 3. Cargar Protocolo
-        const { data: protoData } = await supabase.from('clinical_protocols').select('*').eq('patient_id', patientId).single();
-        if (protoData) {
-          setProtoAffiliation(protoData.affiliation_data || '');
-          setProtoMentalCapital(protoData.mental_capital_eval || '');
-          setProtoDiagnosis(protoData.functional_diagnosis || '');
-          setProtoAxes(protoData.axes_analysis || '');
-          setProtoPlan(protoData.treatment_plan || '');
-        }
-
-        // 4. Cargar Sesiones
-        const { data: sessData } = await supabase.from('patient_sessions').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
-        if (sessData) setSessionHistory(sessData);
-
-      } catch (err: any) {
-        console.error("Error cargando historia clínica:", err);
-        setError("No se pudo cargar la información del paciente. Verifica tu conexión o permisos.");
+        await Promise.all([
+          fetchPatientData(),
+          fetchRolLogs(),
+          fetchProtocol(),
+          fetchSessionHistory()
+        ]);
+      } catch (err) {
+        console.error("Error crítico cargando datos:", err);
+        setError("No se pudo cargar la historia clínica. Intente recargar.");
       } finally {
         setLoading(false);
       }
     };
-
     loadData();
   }, [patientId]);
 
-  // --- FUNCIONES DE GUARDADO (Todas Async correctamente) ---
+  const fetchPatientData = async () => {
+    try {
+      const { data, error } = await supabase.from('patients').select('*').eq('id', patientId).single();
+      if (error) throw error;
+      setPatient(data);
+      setCurrentStatus(data.status || 'active');
+    } catch (err: any) {
+      console.error("Error fetching patient:", err);
+      throw err;
+    }
+  };
+
+  const fetchRolLogs = async () => {
+    try {
+      const { data, error } = await supabase.from('patient_rol_logs').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
+      if (error) throw error;
+      setRolLogs(data || []);
+      const processed = (data || []).map((log: any, i: number) => {
+        const session = log.session_number || i + 1;
+        let riskVal = log.risk_numeric;
+        if (riskVal === null || riskVal === undefined) {
+          riskVal = log.risk_level === 'high' ? 3 : log.risk_level === 'medium' ? 2 : 1;
+        }
+        return {
+          session, risk: riskVal,
+          riskLabel: riskVal === 1 ? 'Bajo' : riskVal === 2 ? 'Medio' : 'Alto',
+          riskColor: riskVal === 1 ? '#4ade80' : riskVal === 2 ? '#facc15' : '#f87171'
+        };
+      });
+      setChartData(processed);
+    } catch (err: any) { console.error("Error ROL:", err); }
+  };
+
+  const fetchProtocol = async () => {
+    try {
+      const { data, error } = await supabase.from('clinical_protocols').select('*').eq('patient_id', patientId).single();
+      if (data) {
+        setProtoAffiliation(data.affiliation_data || '');
+        setProtoMentalCapital(data.mental_capital_eval || '');
+        setProtoDiagnosis(data.functional_diagnosis || '');
+        setProtoAxes(data.axes_analysis || '');
+        setProtoPlan(data.treatment_plan || '');
+      }
+    } catch (err: any) { /* Silencioso si no existe */ }
+  };
+
+  const fetchSessionHistory = async () => {
+    try {
+      const { data, error } = await supabase.from('patient_sessions').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
+      if (!error && data) setSessionHistory(data);
+    } catch (err: any) { console.error("Error sesiones:", err); }
+  };
+
+  // --- ACCIONES DE GUARDADO (CORREGIDAS) ---
 
   const handleSaveStatus = async () => {
-    if (!patientId) return;
+    if (!patientId) { alert("Error: ID de paciente no válido"); return; }
     setSavingStatus(true);
     try {
-      const updateData: any = { status: currentStatus, status_changed_at: new Date().toISOString(), status_comment: statusComment };
+      const updateData: any = { 
+        status: currentStatus, 
+        status_changed_at: new Date().toISOString(), 
+        status_comment: statusComment 
+      };
       
       if (currentStatus === 'deserter') {
         updateData.deserter_date = statusDate || new Date().toISOString().split('T')[0];
         updateData.deserter_reason = statusComment;
-        updateData.deserter_evidence = ''; 
       } else if (currentStatus === 'inactive') {
-        updateData.inactive_date = statusDate || new Date().toISOString().split('T')[0];
         updateData.expected_return = expectedReturn;
         updateData.inactive_reason = statusComment;
       } else {
         // Si es activo, limpiamos campos de desertor/inactivo
         updateData.deserter_date = null;
-        updateData.inactive_date = null;
+        updateData.deserter_reason = null;
+        updateData.expected_return = null;
       }
 
       const { error } = await supabase.from('patients').update(updateData).eq('id', patientId);
       if (error) throw error;
-
+      
       alert("✅ Estado actualizado correctamente");
-      // Actualización optimista local
-      setPatient({ ...patient, status: currentStatus });
+      // Actualización optimista local para evitar recarga completa que podría fallar
+      setPatient({ ...patient, ...updateData });
     } catch (err: any) {
-      console.error(err);
-      alert("❌ Error al actualizar estado: " + err.message);
+      console.error("Error saving status:", err);
+      alert("❌ Error al guardar estado: " + (err.message || "Error desconocido"));
     } finally {
       setSavingStatus(false);
     }
   };
 
   const handleSaveRol = async () => {
-    if (!patientId) return;
     setSavingRol(true);
     try {
       const { error } = await supabase.from('patient_rol_logs').insert([{
@@ -154,9 +178,7 @@ export default function ClinicalRecord() {
       if (error) throw error;
       alert("✅ ROL guardado");
       setRolComment(''); setRolPlan('');
-      // Recargar ROL
-      const { data } = await supabase.from('patient_rol_logs').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
-      if(data) { setRolLogs(data); /* ... lógica de gráfica igual que arriba ... */ setChartData(data.map((l:any,i:number)=>({session:l.session_number||i+1, risk:l.risk_numeric||(l.risk_level==='high'?3:l.risk_level==='medium'?2:1)}))); }
+      await fetchRolLogs();
     } catch (err: any) {
       alert("❌ Error ROL: " + err.message);
     } finally {
@@ -165,7 +187,6 @@ export default function ClinicalRecord() {
   };
 
   const handleSaveProtocol = async () => {
-    if (!patientId) return;
     setSavingProto(true);
     try {
       const payload = {
@@ -183,7 +204,7 @@ export default function ClinicalRecord() {
         const { error: insErr } = await supabase.from('clinical_protocols').insert([payload]);
         if (insErr) throw insErr;
       }
-      alert("✅ Historia Clínica guardada correctamente");
+      alert("✅ Historia Clínica guardada");
     } catch (err: any) {
       alert("❌ Error Protocolo: " + err.message);
     } finally {
@@ -192,7 +213,6 @@ export default function ClinicalRecord() {
   };
 
   const handleSaveSession = async () => {
-    if (!patientId) return;
     const numEl = document.getElementById('sessNum') as HTMLInputElement;
     const topicEl = document.getElementById('sessTopic') as HTMLInputElement;
     const obsEl = document.getElementById('sessObs') as HTMLTextAreaElement;
@@ -224,9 +244,7 @@ export default function ClinicalRecord() {
       
       if(numEl) numEl.value = ''; if(topicEl) topicEl.value = '';
       if(obsEl) obsEl.value = ''; if(commEl) commEl.value = ''; if(scoreEl) scoreEl.value = '';
-      
-      const { data } = await supabase.from('patient_sessions').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
-      if(data) setSessionHistory(data);
+      await fetchSessionHistory();
     } catch (e: any) {
       alert("❌ Error Sesión: " + e.message);
     }
@@ -254,14 +272,13 @@ export default function ClinicalRecord() {
       const { error } = await supabase.from('patient_sessions').delete().eq('id', id);
       if (error) throw error;
       alert("✅ Sesión eliminada");
-      const { data } = await supabase.from('patient_sessions').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
-      if(data) setSessionHistory(data);
+      await fetchSessionHistory();
     } catch (e: any) { alert("❌ Error: " + e.message); }
   };
 
-  // Renderizado
-  if (loading) return <div className="p-6 text-white flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div><p className="ml-4">Cargando historia clínica...</p></div>;
-  if (error) return <div className="p-6 text-red-400 flex flex-col items-center justify-center h-screen"><h2 className="text-xl font-bold mb-2">Error de Carga</h2><p>{error}</p><Button onClick={() => window.location.reload()} className="mt-4">Reintentar</Button></div>;
+  // --- RENDERIZADO ---
+  if (loading) return <div className="p-6 text-white flex items-center justify-center h-screen">Cargando historia clínica...</div>;
+  if (error) return <div className="p-6 text-red-400 flex flex-col items-center justify-center h-screen"><p>{error}</p><Button onClick={() => window.location.reload()} className="mt-4">Recargar</Button></div>;
   if (!patient) return <div className="p-6 text-red-400">Paciente no encontrado.</div>;
 
   return (
@@ -330,17 +347,16 @@ export default function ClinicalRecord() {
           <div className="space-y-4">
              <h3 className="text-white font-bold">Historial ROL</h3>
              {rolLogs.map((l:any) => (
-               <Card key={l.id} className="bg-zinc-900 border-zinc-800">
-                 <CardHeader className="py-3">
-                   <div className="flex justify-between items-center">
-                     <span className="font-bold text-white">Sesión {l.session_number}</span>
-                     <Badge className={l.risk_level==='high'?'bg-red-900 text-red-300':l.risk_level==='medium'?'bg-yellow-900 text-yellow-300':'bg-green-900 text-green-300'}>{l.risk_level.toUpperCase()}</Badge>
+               <Card key={l.id} className="bg-zinc-900 border-zinc-800 p-4">
+                 <div className="flex justify-between items-start mb-2">
+                   <div>
+                     <span className="text-white font-bold text-lg">Sesión {l.session_number}</span>
+                     <Badge className={`ml-2 ${l.risk_level === 'high' ? 'bg-red-900 text-red-300' : l.risk_level === 'medium' ? 'bg-yellow-900 text-yellow-300' : 'bg-green-900 text-green-300'}`}>{l.risk_level.toUpperCase()}</Badge>
                    </div>
-                 </CardHeader>
-                 <CardContent className="text-sm text-zinc-300 space-y-2">
-                   {l.comments && <p><span className="text-zinc-500">Comentario:</span> {l.comments}</p>}
-                   {l.action_plan && <p><span className="text-zinc-500">Plan:</span> {l.action_plan}</p>}
-                 </CardContent>
+                   <span className="text-xs text-zinc-500">{new Date(l.created_at).toLocaleDateString()}</span>
+                 </div>
+                 {l.comments && <p className="text-sm text-zinc-300 mt-2"><span className="text-zinc-500">Comentario:</span> {l.comments}</p>}
+                 {l.action_plan && <p className="text-sm text-zinc-300 mt-1"><span className="text-zinc-500">Plan:</span> {l.action_plan}</p>}
                </Card>
              ))}
           </div>
@@ -385,7 +401,7 @@ export default function ClinicalRecord() {
                   <div><label className="text-xs text-zinc-400">Compromisos</label><textarea id="sessComm" rows={2} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"></textarea></div>
                   <div className="flex gap-2">
                     <Button onClick={handleSaveSession} className="flex-1 bg-blue-600">{editingSessionId ? 'Actualizar Sesión' : 'Guardar Sesión'}</Button>
-                    {editingSessionId && <Button onClick={() => {setEditingSessionId(null); const { data } = supabase.from('patient_sessions').select('*').eq('patient_id', patientId).then(d=>d.data&&setSessionHistory(d.data));}} variant="outline" className="border-zinc-600 text-zinc-300">Cancelar</Button>}
+                    {editingSessionId && <Button onClick={() => {setEditingSessionId(null); fetchSessionHistory();}} variant="outline" className="border-zinc-600 text-zinc-300">Cancelar</Button>}
                   </div>
                 </CardContent>
               </Card>

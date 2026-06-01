@@ -18,14 +18,14 @@ export default function ClinicalRecord() {
   const [activeTab, setActiveTab] = useState<'data' | 'rol' | 'eval'>('data');
   const [innerTab, setInnerTab] = useState<'protocol' | 'sessions'>('protocol');
 
-  // Estados Sociodemográficos (Editables)
+  // Estados SociodemogrÃ¡ficos (Editables)
   const [demoPhone, setDemoPhone] = useState('');
   const [demoBirthDate, setDemoBirthDate] = useState('');
   const [demoOccupation, setDemoOccupation] = useState('');
   const [demoMaritalStatus, setDemoMaritalStatus] = useState('');
   const [savingDemo, setSavingDemo] = useState(false);
 
-  // Estados Gestión Estado
+  // Estados GestiÃ³n Estado
   const [currentStatus, setCurrentStatus] = useState('active');
   const [statusDate, setStatusDate] = useState('');
   const [statusComment, setStatusComment] = useState('');
@@ -69,7 +69,7 @@ export default function ClinicalRecord() {
       setPatient(data);
       setCurrentStatus(data.status || 'active');
       
-      // Cargar datos sociodemográficos si existen
+      // Cargar datos sociodemogrÃ¡ficos si existen
       setDemoPhone(data.phone || '');
       setDemoBirthDate(data.birth_date ? new Date(data.birth_date).toISOString().split('T')[0] : '');
       setDemoOccupation(data.occupation || '');
@@ -132,24 +132,62 @@ export default function ClinicalRecord() {
       }).eq('id', patientId);
       
       if (error) throw error;
-      alert("✅ Datos sociodemográficos actualizados");
-    } catch (err: any) { alert("❌ Error: " + err.message); }
+      alert("âœ… Datos sociodemogrÃ¡ficos actualizados");
+    } catch (err: any) { alert("âŒ Error: " + err.message); }
     finally { setSavingDemo(false); }
   };
 
   const handleSaveStatus = async () => {
+    if (!patientId) { console.error("No hay patientId"); return; }
     setSavingStatus(true);
     try {
-      const updateData: any = { status: currentStatus, status_changed_at: new Date().toISOString(), status_comment: statusComment };
-      if (currentStatus === 'deserter') { updateData.deserter_date = statusDate; updateData.deserter_reason = statusComment; }
-      else if (currentStatus === 'inactive') { updateData.expected_return = expectedReturn; updateData.inactive_reason = statusComment; }
+      console.log("Actualizando estado a:", currentStatus);
+      const updateData: any = { 
+        status: currentStatus, 
+        status_changed_at: new Date().toISOString(), 
+        status_comment: statusComment || '' 
+      };
       
-      const { error } = await supabase.from('patients').update(updateData).eq('id', patientId);
-      if (error) throw error;
-      alert("✅ Estado actualizado");
-      fetchPatientData();
-    } catch (err: any) { alert("❌ Error: " + err.message); }
-    finally { setSavingStatus(false); }
+      if (currentStatus === 'deserter') { 
+        updateData.deserter_date = statusDate || new Date().toISOString().split('T')[0]; 
+        updateData.deserter_reason = statusComment; 
+      } else if (currentStatus === 'inactive') { 
+        updateData.expected_return = expectedReturn; 
+        updateData.inactive_reason = statusComment; 
+      } else {
+        // Limpiar datos si vuelve a activo
+        updateData.deserter_date = null;
+        updateData.deserter_reason = null;
+        updateData.expected_return = null;
+      }
+      
+      const { data, error } = await supabase.from('patients').update(updateData).eq('id', patientId).select();
+      
+      if (error) {
+        console.error("Error Supabase:", error);
+        throw error;
+      }
+      
+      console.log("Actualización exitosa:", data);
+      alert("✅ Estado actualizado correctamente");
+      
+      // Actualizar estado local inmediatamente para evitar recargas raras
+      if (data && data.length > 0) {
+        setPatient(data[0]);
+        setCurrentStatus(data[0].status);
+      } else {
+        fetchPatientData();
+      }
+    } catch (err: any) {
+      console.error("Excepción capturada:", err);
+      alert("❌ Error al actualizar: " + err.message);
+      // Si el error es de autenticación, NO redirigir, solo avisar
+      if (err.message.includes('JWT') || err.message.includes('session')) {
+         alert("⚠️ Tu sesión podría haber expirado. Por favor recarga la página.");
+      }
+    } finally {
+      setSavingStatus(false);
+    }
   };
 
   const handleSaveRol = async () => {
@@ -161,10 +199,10 @@ export default function ClinicalRecord() {
         comments: rolComment, action_plan: rolPlan
       }]);
       if (error) throw error;
-      alert("✅ ROL guardado");
+      alert("âœ… ROL guardado");
       setRolComment(''); setRolPlan('');
       fetchRolLogs();
-    } catch (err: any) { alert("❌ Error ROL: " + err.message); }
+    } catch (err: any) { alert("âŒ Error ROL: " + err.message); }
     finally { setSavingRol(false); }
   };
 
@@ -186,8 +224,8 @@ export default function ClinicalRecord() {
         const { error: insErr } = await supabase.from('clinical_protocols').insert([payload]);
         if (insErr) throw insErr;
       }
-      alert("✅ Historia Clínica guardada");
-    } catch (err: any) { alert("❌ Error Protocolo: " + err.message); }
+      alert("âœ… Historia ClÃ­nica guardada");
+    } catch (err: any) { alert("âŒ Error Protocolo: " + err.message); }
     finally { setSavingProto(false); }
   };
 
@@ -198,7 +236,7 @@ export default function ClinicalRecord() {
     const commEl = document.getElementById('sessComm') as HTMLTextAreaElement;
     const scoreEl = document.getElementById('sessScore') as HTMLInputElement;
 
-    if (!numEl || !topicEl || !numEl.value || !topicEl.value) { alert("⚠️ Completa Sesión y Tema"); return; }
+    if (!numEl || !topicEl || !numEl.value || !topicEl.value) { alert("âš ï¸ Completa SesiÃ³n y Tema"); return; }
 
     try {
       const payload = {
@@ -213,18 +251,18 @@ export default function ClinicalRecord() {
       if (editingSessionId) {
         const { error } = await supabase.from('patient_sessions').update(payload).eq('id', editingSessionId);
         if (error) throw error;
-        alert("✅ Sesión actualizada");
+        alert("âœ… SesiÃ³n actualizada");
         setEditingSessionId(null);
       } else {
         const { error } = await supabase.from('patient_sessions').insert([payload]);
         if (error) throw error;
-        alert("✅ Sesión guardada");
+        alert("âœ… SesiÃ³n guardada");
       }
       
       if(numEl) numEl.value = ''; if(topicEl) topicEl.value = '';
       if(obsEl) obsEl.value = ''; if(commEl) commEl.value = ''; if(scoreEl) scoreEl.value = '';
       fetchSessionHistory();
-    } catch (e: any) { alert("❌ Error Sesión: " + e.message); }
+    } catch (e: any) { alert("âŒ Error SesiÃ³n: " + e.message); }
   };
 
   const handleEditSession = (session: any) => {
@@ -245,13 +283,13 @@ export default function ClinicalRecord() {
   };
 
   const handleDeleteSession = async (id: string) => {
-    if(!confirm("¿Estás seguro de borrar esta sesión?")) return;
+    if(!confirm("Â¿EstÃ¡s seguro de borrar esta sesiÃ³n?")) return;
     try {
       const { error } = await supabase.from('patient_sessions').delete().eq('id', id);
       if (error) throw error;
-      alert("✅ Sesión eliminada");
+      alert("âœ… SesiÃ³n eliminada");
       fetchSessionHistory();
-    } catch (e: any) { alert("❌ Error: " + e.message); }
+    } catch (e: any) { alert("âŒ Error: " + e.message); }
   };
 
   if (loading) return <div className="p-6 text-white">Cargando...</div>;
@@ -275,7 +313,7 @@ export default function ClinicalRecord() {
 
       {/* Tabs Principales */}
       <div className="flex gap-2 border-b border-zinc-800">
-        <button onClick={() => {setActiveTab('data'); setInnerTab('protocol')}} className={`pb-2 px-4 ${activeTab==='data'&&innerTab==='protocol'?'text-white border-b-2 border-blue-500':'text-zinc-500'}`}>Datos Clínicos</button>
+        <button onClick={() => {setActiveTab('data'); setInnerTab('protocol')}} className={`pb-2 px-4 ${activeTab==='data'&&innerTab==='protocol'?'text-white border-b-2 border-blue-500':'text-zinc-500'}`}>Datos ClÃ­nicos</button>
         <button onClick={() => setActiveTab('rol')} className={`pb-2 px-4 ${activeTab==='rol'?'text-white border-b-2 border-blue-500':'text-zinc-500'}`}>ROL Semanal</button>
         <button onClick={() => setActiveTab('eval')} className={`pb-2 px-4 ${activeTab==='eval'?'text-white border-b-2 border-blue-500':'text-zinc-500'}`}>Evaluaciones</button>
       </div>
@@ -289,29 +327,29 @@ export default function ClinicalRecord() {
             <CardHeader><CardTitle className="text-white">Registro ROL</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <input type="number" value={sessionNum} onChange={e=>setSessionNum(parseInt(e.target.value))} placeholder="N° Sesión" className="bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
+                <input type="number" value={sessionNum} onChange={e=>setSessionNum(parseInt(e.target.value))} placeholder="NÂ° SesiÃ³n" className="bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
                 <select value={newRisk} onChange={e=>setNewRisk(e.target.value)} className="bg-zinc-950 border border-zinc-700 rounded p-2 text-white">
                   <option value="low">Bajo (Verde)</option><option value="medium">Medio (Amarillo)</option><option value="high">Alto (Rojo)</option>
                 </select>
               </div>
               {(newRisk==='medium'||newRisk==='high') && (
                 <>
-                  <input placeholder="Comentario (¿Por qué este nivel?)" value={rolComment} onChange={e=>setRolComment(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
-                  <textarea placeholder="Plan de Acción para esta semana" value={rolPlan} onChange={e=>setRolPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white h-20"/>
+                  <input placeholder="Comentario (Â¿Por quÃ© este nivel?)" value={rolComment} onChange={e=>setRolComment(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
+                  <textarea placeholder="Plan de AcciÃ³n para esta semana" value={rolPlan} onChange={e=>setRolPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white h-20"/>
                 </>
               )}
               <Button onClick={handleSaveRol} disabled={savingRol} className="w-full bg-blue-600">{savingRol?'Guardando...':'Guardar ROL'}</Button>
             </CardContent>
           </Card>
           
-          {/* GRÁFICA DE COLORES */}
+          {/* GRÃFICA DE COLORES */}
           <Card className="bg-zinc-900 border-zinc-800 h-72">
             <CardContent className="h-full pt-6">
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                    <XAxis dataKey="session" stroke="#999" label={{ value: 'Sesión', position: 'insideBottom', offset: -5 }} />
+                    <XAxis dataKey="session" stroke="#999" label={{ value: 'SesiÃ³n', position: 'insideBottom', offset: -5 }} />
                     <YAxis stroke="#999" ticks={[1, 2, 3]} tickFormatter={(val) => val === 1 ? 'Bajo' : val === 2 ? 'Medio' : 'Alto'} width={60} />
                     <Tooltip 
                       contentStyle={{backgroundColor:'#18181b', borderColor:'#333', color:'#fff'}}
@@ -334,20 +372,20 @@ export default function ClinicalRecord() {
                     />
                   </LineChart>
                 </ResponsiveContainer>
-              ) : <p className="text-zinc-500 text-center">Sin datos registrados aún.</p>}
+              ) : <p className="text-zinc-500 text-center">Sin datos registrados aÃºn.</p>}
             </CardContent>
           </Card>
 
           {/* HISTORIAL DETALLADO */}
           <div className="space-y-4">
             <h3 className="text-white font-bold text-lg">Historial de Registros</h3>
-            {rolLogs.length === 0 ? <p className="text-zinc-500">No hay registros aún.</p> : 
+            {rolLogs.length === 0 ? <p className="text-zinc-500">No hay registros aÃºn.</p> : 
               rolLogs.map((log: any) => (
                 <Card key={log.id} className="bg-zinc-900 border-zinc-800">
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
-                        <span className="text-white font-bold text-lg">Sesión {log.session_number}</span>
+                        <span className="text-white font-bold text-lg">SesiÃ³n {log.session_number}</span>
                         <Badge className={log.risk_level === 'high' ? 'bg-red-900 text-red-300' : log.risk_level === 'medium' ? 'bg-yellow-900 text-yellow-300' : 'bg-green-900 text-green-300'}>
                           {log.risk_level === 'high' ? 'ALTO' : log.risk_level === 'medium' ? 'MEDIO' : 'BAJO'}
                         </Badge>
@@ -358,13 +396,13 @@ export default function ClinicalRecord() {
                   <CardContent className="space-y-3 text-sm">
                     {log.comments && (
                       <div>
-                        <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Comentario / Justificación:</p>
+                        <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Comentario / JustificaciÃ³n:</p>
                         <p className="text-zinc-300 bg-zinc-950 p-2 rounded border border-zinc-800">{log.comments}</p>
                       </div>
                     )}
                     {log.action_plan && (
                       <div>
-                        <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Plan de Acción:</p>
+                        <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Plan de AcciÃ³n:</p>
                         <p className="text-zinc-300 bg-zinc-950 p-2 rounded border border-zinc-800">{log.action_plan}</p>
                       </div>
                     )}
@@ -376,7 +414,7 @@ export default function ClinicalRecord() {
           </div>
         </div>
       ) : (
-        /* --- DATOS CLÍNICOS --- */
+        /* --- DATOS CLÃNICOS --- */
         <div className="space-y-6 animate-in fade-in">
           {/* Sub-Tabs Internas */}
           <div className="flex gap-2 mb-4 pl-4 border-l-2 border-blue-500">
@@ -387,13 +425,13 @@ export default function ClinicalRecord() {
           {innerTab === 'protocol' ? (
             <div className="space-y-6">
               
-              {/* NUEVO: DATOS SOCIODEMOGRÁFICOS EDITABLES */}
+              {/* NUEVO: DATOS SOCIODEMOGRÃFICOS EDITABLES */}
               <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-purple-500">
-                <CardHeader><CardTitle className="text-white flex items-center gap-2"><User className="w-5 h-5 text-purple-400"/> Datos Sociodemográficos</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-white flex items-center gap-2"><User className="w-5 h-5 text-purple-400"/> Datos SociodemogrÃ¡ficos</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs text-zinc-400 flex items-center gap-1"><Phone className="w-3 h-3"/> Teléfono</label>
+                      <label className="text-xs text-zinc-400 flex items-center gap-1"><Phone className="w-3 h-3"/> TelÃ©fono</label>
                       <input type="text" value={demoPhone} onChange={e=>setDemoPhone(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
                     </div>
                     <div>
@@ -401,7 +439,7 @@ export default function ClinicalRecord() {
                       <input type="date" value={demoBirthDate} onChange={e=>setDemoBirthDate(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
                     </div>
                     <div>
-                      <label className="text-xs text-zinc-400 flex items-center gap-1"><Briefcase className="w-3 h-3"/> Ocupación</label>
+                      <label className="text-xs text-zinc-400 flex items-center gap-1"><Briefcase className="w-3 h-3"/> OcupaciÃ³n</label>
                       <input type="text" value={demoOccupation} onChange={e=>setDemoOccupation(e.target.value)} placeholder="Ej: Empresario, Estudiante..." className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
                     </div>
                     <div>
@@ -412,19 +450,19 @@ export default function ClinicalRecord() {
                         <option value="Casado">Casado/a</option>
                         <option value="Divorciado">Divorciado/a</option>
                         <option value="Viudo">Viudo/a</option>
-                        <option value="Union Libre">Unión Libre</option>
+                        <option value="Union Libre">UniÃ³n Libre</option>
                       </select>
                     </div>
                   </div>
                   <Button onClick={handleSaveDemographics} disabled={savingDemo} className="w-full bg-purple-700 hover:bg-purple-600 text-white">
-                    {savingDemo ? 'Guardando...' : 'Actualizar Datos Sociodemográficos'}
+                    {savingDemo ? 'Guardando...' : 'Actualizar Datos SociodemogrÃ¡ficos'}
                   </Button>
                 </CardContent>
               </Card>
 
-              {/* Gestión de Estado */}
+              {/* GestiÃ³n de Estado */}
               <Card className="bg-zinc-900 border-zinc-800">
-                <CardHeader><CardTitle className="text-white text-sm">Gestión Rápida de Estado</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-white text-sm">GestiÃ³n RÃ¡pida de Estado</CardTitle></CardHeader>
                 <CardContent className="flex gap-4 items-end">
                   <div className="flex-1"><label className="text-xs text-zinc-400">Estado</label><select value={currentStatus} onChange={e=>setCurrentStatus(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"><option value="active">Activo</option><option value="inactive">Inactivo</option><option value="deserter">Desertor</option></select></div>
                   <Button onClick={handleSaveStatus} disabled={savingStatus} className="bg-blue-600">{savingStatus?'...':'Actualizar'}</Button>
@@ -433,14 +471,14 @@ export default function ClinicalRecord() {
 
               {/* Formulario Protocolo Editable */}
               <div className="space-y-4">
-                <div><label className="text-xs text-blue-400 font-bold block mb-1">I. DATOS DE FILIACIÓN</label><textarea value={protoAffiliation} onChange={e=>setProtoAffiliation(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-32"/></div>
-                <div><label className="text-xs text-blue-400 font-bold block mb-1">II. EVALUACIÓN CAPITAL MENTAL</label><textarea value={protoMentalCapital} onChange={e=>setProtoMentalCapital(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
-                <div><label className="text-xs text-blue-400 font-bold block mb-1">III. DIAGNÓSTICO FUNCIONAL</label><textarea value={protoDiagnosis} onChange={e=>setProtoDiagnosis(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
-                <div><label className="text-xs text-blue-400 font-bold block mb-1">IV. ANÁLISIS POR EJES</label><textarea value={protoAxes} onChange={e=>setProtoAxes(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-64"/></div>
+                <div><label className="text-xs text-blue-400 font-bold block mb-1">I. DATOS DE FILIACIÃ“N</label><textarea value={protoAffiliation} onChange={e=>setProtoAffiliation(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-32"/></div>
+                <div><label className="text-xs text-blue-400 font-bold block mb-1">II. EVALUACIÃ“N CAPITAL MENTAL</label><textarea value={protoMentalCapital} onChange={e=>setProtoMentalCapital(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
+                <div><label className="text-xs text-blue-400 font-bold block mb-1">III. DIAGNÃ“STICO FUNCIONAL</label><textarea value={protoDiagnosis} onChange={e=>setProtoDiagnosis(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
+                <div><label className="text-xs text-blue-400 font-bold block mb-1">IV. ANÃLISIS POR EJES</label><textarea value={protoAxes} onChange={e=>setProtoAxes(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-64"/></div>
                 <div><label className="text-xs text-blue-400 font-bold block mb-1">V. PLAN DE TRATAMIENTO</label><textarea value={protoPlan} onChange={e=>setProtoPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
                 
                 <Button onClick={handleSaveProtocol} disabled={savingProto} className="w-full bg-green-700 hover:bg-green-600 text-white py-4 text-lg font-bold">
-                  {savingProto ? 'Guardando...' : '💾 GUARDAR HISTORIA CLÍNICA COMPLETA'}
+                  {savingProto ? 'Guardando...' : 'ðŸ’¾ GUARDAR HISTORIA CLÃNICA COMPLETA'}
                 </Button>
               </div>
             </div>
@@ -448,17 +486,17 @@ export default function ClinicalRecord() {
             /* --- HISTORIAL DE SESIONES --- */
             <div className="space-y-6">
               <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-blue-500">
-                <CardHeader><CardTitle className="text-white">{editingSessionId ? '✏️ Editando Sesión' : 'Registrar Nueva Sesión'}</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-white">{editingSessionId ? 'âœï¸ Editando SesiÃ³n' : 'Registrar Nueva SesiÃ³n'}</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div><label className="text-xs text-zinc-400">N° Sesión</label><input type="number" id="sessNum" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
-                    <div className="col-span-2"><label className="text-xs text-zinc-400">Módulo/Tema</label><input type="text" id="sessTopic" placeholder="Ej: Módulo 2" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
+                    <div><label className="text-xs text-zinc-400">NÂ° SesiÃ³n</label><input type="number" id="sessNum" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
+                    <div className="col-span-2"><label className="text-xs text-zinc-400">MÃ³dulo/Tema</label><input type="text" id="sessTopic" placeholder="Ej: MÃ³dulo 2" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
                     <div><label className="text-xs text-zinc-400">Estado (0-10)</label><input type="number" min="0" max="10" id="sessScore" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
                   </div>
                   <div><label className="text-xs text-zinc-400">Observaciones</label><textarea id="sessObs" rows={3} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"></textarea></div>
                   <div><label className="text-xs text-zinc-400">Compromisos</label><textarea id="sessComm" rows={2} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"></textarea></div>
                   <div className="flex gap-2">
-                    <Button onClick={handleSaveSession} className="flex-1 bg-blue-600">{editingSessionId ? 'Actualizar Sesión' : 'Guardar Sesión'}</Button>
+                    <Button onClick={handleSaveSession} className="flex-1 bg-blue-600">{editingSessionId ? 'Actualizar SesiÃ³n' : 'Guardar SesiÃ³n'}</Button>
                     {editingSessionId && <Button onClick={() => {setEditingSessionId(null); fetchSessionHistory();}} variant="outline" className="border-zinc-600 text-zinc-300">Cancelar</Button>}
                   </div>
                 </CardContent>
@@ -470,7 +508,7 @@ export default function ClinicalRecord() {
                   <Card key={s.id} className="bg-zinc-900 border-zinc-800">
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-white font-bold">Sesión {s.session_number}: {s.module_topic}</span>
+                        <span className="text-white font-bold">SesiÃ³n {s.session_number}: {s.module_topic}</span>
                         <div className="flex gap-2 items-center">
                           <Badge className={s.patient_status_score>=7?'bg-green-900':s.patient_status_score>=4?'bg-yellow-900':'bg-red-900'}>{s.patient_status_score}/10</Badge>
                           <button onClick={() => handleEditSession(s)} className="text-blue-400 hover:text-blue-300"><Edit2 size={16}/></button>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { ArrowLeft, User, Mail, Phone, Calendar, Briefcase, Activity, FileText, Save, TrendingUp, Edit2, Trash2 } from 'lucide-react';
+import { ArrowLeft, User, Mail, Activity, FileText, Save, TrendingUp, Edit2, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -18,14 +18,7 @@ export default function ClinicalRecord() {
   const [activeTab, setActiveTab] = useState<'data' | 'rol' | 'eval'>('data');
   const [innerTab, setInnerTab] = useState<'protocol' | 'sessions'>('protocol');
 
-  // Estados SociodemogrÃ¡ficos (Editables)
-  const [demoPhone, setDemoPhone] = useState('');
-  const [demoBirthDate, setDemoBirthDate] = useState('');
-  const [demoOccupation, setDemoOccupation] = useState('');
-  const [demoMaritalStatus, setDemoMaritalStatus] = useState('');
-  const [savingDemo, setSavingDemo] = useState(false);
-
-  // Estados GestiÃ³n Estado
+  // Estados Gestión Estado
   const [currentStatus, setCurrentStatus] = useState('active');
   const [statusDate, setStatusDate] = useState('');
   const [statusComment, setStatusComment] = useState('');
@@ -56,26 +49,40 @@ export default function ClinicalRecord() {
   // Carga Inicial
   useEffect(() => {
     if (!patientId) return;
-    fetchPatientData();
-    fetchRolLogs();
-    fetchProtocol();
-    fetchSessionHistory();
+    // Usamos Promise.all para cargar todo en paralelo pero manejando errores individualmente
+    const loadData = async () => {
+      try {
+        await fetchPatientData();
+        await fetchRolLogs();
+        await fetchProtocol();
+        await fetchSessionHistory();
+      } catch (error) {
+        console.error("Error crítico cargando datos:", error);
+        // No cerramos sesión, solo mostramos error o permitimos ver lo que cargó
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, [patientId]);
 
   const fetchPatientData = async () => {
     try {
       const { data, error } = await supabase.from('patients').select('*').eq('id', patientId).single();
-      if (error) throw error;
-      setPatient(data);
-      setCurrentStatus(data.status || 'active');
-      
-      // Cargar datos sociodemogrÃ¡ficos si existen
-      setDemoPhone(data.phone || '');
-      setDemoBirthDate(data.birth_date ? new Date(data.birth_date).toISOString().split('T')[0] : '');
-      setDemoOccupation(data.occupation || '');
-      setDemoMaritalStatus(data.marital_status || '');
-    } catch (err) { console.error("Error paciente:", err); } 
-    finally { setLoading(false); }
+      if (error) {
+        if (error.code === 'PGRST116') { // Row not found
+           console.warn("Paciente no encontrado");
+        } else {
+           throw error;
+        }
+      } else {
+        setPatient(data);
+        setCurrentStatus(data.status || 'active');
+      }
+    } catch (err: any) {
+      console.error("Error fetching patient:", err.message);
+      // Evitamos lanzar el error para no colapsar el app
+    }
   };
 
   const fetchRolLogs = async () => {
@@ -111,7 +118,7 @@ export default function ClinicalRecord() {
         setProtoAxes(data.axes_analysis || '');
         setProtoPlan(data.treatment_plan || '');
       }
-    } catch (err) { console.log("Sin protocolo previo."); }
+    } catch (err) { /* Silencioso si no existe */ }
   };
 
   const fetchSessionHistory = async () => {
@@ -121,70 +128,49 @@ export default function ClinicalRecord() {
     } catch (err) { console.error("Error sesiones:", err); }
   };
 
-  const handleSaveDemographics = async () => {
-    setSavingDemo(true);
-    try {
-      const { error } = await supabase.from('patients').update({
-        phone: demoPhone,
-        birth_date: demoBirthDate || null,
-        occupation: demoOccupation,
-        marital_status: demoMaritalStatus
-      }).eq('id', patientId);
-      
-      if (error) throw error;
-      alert("âœ… Datos sociodemogrÃ¡ficos actualizados");
-    } catch (err: any) { alert("âŒ Error: " + err.message); }
-    finally { setSavingDemo(false); }
-  };
-
   const handleSaveStatus = async () => {
-    if (!patientId) { console.error("No hay patientId"); return; }
+    if (!patientId) {
+      alert("Error interno: No se identificó al paciente.");
+      return;
+    }
+
     setSavingStatus(true);
     try {
-      console.log("Actualizando estado a:", currentStatus);
       const updateData: any = { 
         status: currentStatus, 
         status_changed_at: new Date().toISOString(), 
-        status_comment: statusComment || '' 
+        status_comment: statusComment 
       };
-      
+
       if (currentStatus === 'deserter') { 
-        updateData.deserter_date = statusDate || new Date().toISOString().split('T')[0]; 
+        updateData.deserter_date = statusDate; 
         updateData.deserter_reason = statusComment; 
+        // Limpiar otros campos si aplica
+        updateData.expected_return = null;
       } else if (currentStatus === 'inactive') { 
         updateData.expected_return = expectedReturn; 
-        updateData.inactive_reason = statusComment; 
-      } else {
-        // Limpiar datos si vuelve a activo
+        updateData.inactive_reason = statusComment;
         updateData.deserter_date = null;
-        updateData.deserter_reason = null;
+      } else {
+        // Si es activo, limpiamos fechas de desertor/inactivo
+        updateData.deserter_date = null;
         updateData.expected_return = null;
       }
       
       const { data, error } = await supabase.from('patients').update(updateData).eq('id', patientId).select();
       
-      if (error) {
-        console.error("Error Supabase:", error);
-        throw error;
-      }
-      
-      console.log("Actualización exitosa:", data);
-      alert("✅ Estado actualizado correctamente");
-      
-      // Actualizar estado local inmediatamente para evitar recargas raras
+      if (error) throw error;
+
+      // Actualización optimista local para evitar recargas bruscas
       if (data && data.length > 0) {
         setPatient(data[0]);
-        setCurrentStatus(data[0].status);
-      } else {
-        fetchPatientData();
       }
+      
+      alert("✅ Estado actualizado correctamente");
+      // No recargamos toda la página, solo actualizamos el estado local si es necesario
     } catch (err: any) {
-      console.error("Excepción capturada:", err);
-      alert("❌ Error al actualizar: " + err.message);
-      // Si el error es de autenticación, NO redirigir, solo avisar
-      if (err.message.includes('JWT') || err.message.includes('session')) {
-         alert("⚠️ Tu sesión podría haber expirado. Por favor recarga la página.");
-      }
+      console.error("Detalle del error:", err);
+      alert("❌ Error al actualizar: " + (err.message || "Error desconocido"));
     } finally {
       setSavingStatus(false);
     }
@@ -199,10 +185,10 @@ export default function ClinicalRecord() {
         comments: rolComment, action_plan: rolPlan
       }]);
       if (error) throw error;
-      alert("âœ… ROL guardado");
+      alert("✅ ROL guardado");
       setRolComment(''); setRolPlan('');
       fetchRolLogs();
-    } catch (err: any) { alert("âŒ Error ROL: " + err.message); }
+    } catch (err: any) { alert("❌ Error ROL: " + err.message); }
     finally { setSavingRol(false); }
   };
 
@@ -224,8 +210,8 @@ export default function ClinicalRecord() {
         const { error: insErr } = await supabase.from('clinical_protocols').insert([payload]);
         if (insErr) throw insErr;
       }
-      alert("âœ… Historia ClÃ­nica guardada");
-    } catch (err: any) { alert("âŒ Error Protocolo: " + err.message); }
+      alert("✅ Historia Clínica guardada");
+    } catch (err: any) { alert("❌ Error Protocolo: " + err.message); }
     finally { setSavingProto(false); }
   };
 
@@ -236,7 +222,7 @@ export default function ClinicalRecord() {
     const commEl = document.getElementById('sessComm') as HTMLTextAreaElement;
     const scoreEl = document.getElementById('sessScore') as HTMLInputElement;
 
-    if (!numEl || !topicEl || !numEl.value || !topicEl.value) { alert("âš ï¸ Completa SesiÃ³n y Tema"); return; }
+    if (!numEl || !topicEl || !numEl.value || !topicEl.value) { alert("⚠️ Completa Sesión y Tema"); return; }
 
     try {
       const payload = {
@@ -251,18 +237,18 @@ export default function ClinicalRecord() {
       if (editingSessionId) {
         const { error } = await supabase.from('patient_sessions').update(payload).eq('id', editingSessionId);
         if (error) throw error;
-        alert("âœ… SesiÃ³n actualizada");
+        alert("✅ Sesión actualizada");
         setEditingSessionId(null);
       } else {
         const { error } = await supabase.from('patient_sessions').insert([payload]);
         if (error) throw error;
-        alert("âœ… SesiÃ³n guardada");
+        alert("✅ Sesión guardada");
       }
       
       if(numEl) numEl.value = ''; if(topicEl) topicEl.value = '';
       if(obsEl) obsEl.value = ''; if(commEl) commEl.value = ''; if(scoreEl) scoreEl.value = '';
       fetchSessionHistory();
-    } catch (e: any) { alert("âŒ Error SesiÃ³n: " + e.message); }
+    } catch (e: any) { alert("❌ Error Sesión: " + e.message); }
   };
 
   const handleEditSession = (session: any) => {
@@ -283,17 +269,17 @@ export default function ClinicalRecord() {
   };
 
   const handleDeleteSession = async (id: string) => {
-    if(!confirm("Â¿EstÃ¡s seguro de borrar esta sesiÃ³n?")) return;
+    if(!confirm("¿Estás seguro de borrar esta sesión?")) return;
     try {
       const { error } = await supabase.from('patient_sessions').delete().eq('id', id);
       if (error) throw error;
-      alert("âœ… SesiÃ³n eliminada");
+      alert("✅ Sesión eliminada");
       fetchSessionHistory();
-    } catch (e: any) { alert("âŒ Error: " + e.message); }
+    } catch (e: any) { alert("❌ Error: " + e.message); }
   };
 
-  if (loading) return <div className="p-6 text-white">Cargando...</div>;
-  if (!patient) return <div className="p-6 text-red-400">Paciente no encontrado.</div>;
+  if (loading) return <div className="p-6 text-white flex items-center justify-center h-screen">Cargando historia clínica...</div>;
+  if (!patient) return <div className="p-6 text-red-400 flex items-center justify-center h-screen">Paciente no encontrado o error de carga.</div>;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -313,7 +299,7 @@ export default function ClinicalRecord() {
 
       {/* Tabs Principales */}
       <div className="flex gap-2 border-b border-zinc-800">
-        <button onClick={() => {setActiveTab('data'); setInnerTab('protocol')}} className={`pb-2 px-4 ${activeTab==='data'&&innerTab==='protocol'?'text-white border-b-2 border-blue-500':'text-zinc-500'}`}>Datos ClÃ­nicos</button>
+        <button onClick={() => {setActiveTab('data'); setInnerTab('protocol')}} className={`pb-2 px-4 ${activeTab==='data'&&innerTab==='protocol'?'text-white border-b-2 border-blue-500':'text-zinc-500'}`}>Datos Clínicos</button>
         <button onClick={() => setActiveTab('rol')} className={`pb-2 px-4 ${activeTab==='rol'?'text-white border-b-2 border-blue-500':'text-zinc-500'}`}>ROL Semanal</button>
         <button onClick={() => setActiveTab('eval')} className={`pb-2 px-4 ${activeTab==='eval'?'text-white border-b-2 border-blue-500':'text-zinc-500'}`}>Evaluaciones</button>
       </div>
@@ -327,29 +313,29 @@ export default function ClinicalRecord() {
             <CardHeader><CardTitle className="text-white">Registro ROL</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <input type="number" value={sessionNum} onChange={e=>setSessionNum(parseInt(e.target.value))} placeholder="NÂ° SesiÃ³n" className="bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
+                <input type="number" value={sessionNum} onChange={e=>setSessionNum(parseInt(e.target.value))} placeholder="N° Sesión" className="bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
                 <select value={newRisk} onChange={e=>setNewRisk(e.target.value)} className="bg-zinc-950 border border-zinc-700 rounded p-2 text-white">
                   <option value="low">Bajo (Verde)</option><option value="medium">Medio (Amarillo)</option><option value="high">Alto (Rojo)</option>
                 </select>
               </div>
               {(newRisk==='medium'||newRisk==='high') && (
                 <>
-                  <input placeholder="Comentario (Â¿Por quÃ© este nivel?)" value={rolComment} onChange={e=>setRolComment(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
-                  <textarea placeholder="Plan de AcciÃ³n para esta semana" value={rolPlan} onChange={e=>setRolPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white h-20"/>
+                  <input placeholder="Comentario" value={rolComment} onChange={e=>setRolComment(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
+                  <textarea placeholder="Plan de Acción" value={rolPlan} onChange={e=>setRolPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white h-20"/>
                 </>
               )}
               <Button onClick={handleSaveRol} disabled={savingRol} className="w-full bg-blue-600">{savingRol?'Guardando...':'Guardar ROL'}</Button>
             </CardContent>
           </Card>
           
-          {/* GRÃFICA DE COLORES */}
+          {/* GRÁFICA DE COLORES */}
           <Card className="bg-zinc-900 border-zinc-800 h-72">
             <CardContent className="h-full pt-6">
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                    <XAxis dataKey="session" stroke="#999" label={{ value: 'SesiÃ³n', position: 'insideBottom', offset: -5 }} />
+                    <XAxis dataKey="session" stroke="#999" label={{ value: 'Sesión', position: 'insideBottom', offset: -5 }} />
                     <YAxis stroke="#999" ticks={[1, 2, 3]} tickFormatter={(val) => val === 1 ? 'Bajo' : val === 2 ? 'Medio' : 'Alto'} width={60} />
                     <Tooltip 
                       contentStyle={{backgroundColor:'#18181b', borderColor:'#333', color:'#fff'}}
@@ -372,49 +358,33 @@ export default function ClinicalRecord() {
                     />
                   </LineChart>
                 </ResponsiveContainer>
-              ) : <p className="text-zinc-500 text-center">Sin datos registrados aÃºn.</p>}
+              ) : <p className="text-zinc-500 text-center">Sin datos registrados aún.</p>}
             </CardContent>
           </Card>
 
-          {/* HISTORIAL DETALLADO */}
           <div className="space-y-4">
-            <h3 className="text-white font-bold text-lg">Historial de Registros</h3>
-            {rolLogs.length === 0 ? <p className="text-zinc-500">No hay registros aÃºn.</p> : 
-              rolLogs.map((log: any) => (
-                <Card key={log.id} className="bg-zinc-900 border-zinc-800">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <span className="text-white font-bold text-lg">SesiÃ³n {log.session_number}</span>
-                        <Badge className={log.risk_level === 'high' ? 'bg-red-900 text-red-300' : log.risk_level === 'medium' ? 'bg-yellow-900 text-yellow-300' : 'bg-green-900 text-green-300'}>
-                          {log.risk_level === 'high' ? 'ALTO' : log.risk_level === 'medium' ? 'MEDIO' : 'BAJO'}
-                        </Badge>
-                      </div>
-                      <span className="text-xs text-zinc-500">{new Date(log.created_at).toLocaleDateString()}</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    {log.comments && (
-                      <div>
-                        <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Comentario / JustificaciÃ³n:</p>
-                        <p className="text-zinc-300 bg-zinc-950 p-2 rounded border border-zinc-800">{log.comments}</p>
-                      </div>
-                    )}
-                    {log.action_plan && (
-                      <div>
-                        <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Plan de AcciÃ³n:</p>
-                        <p className="text-zinc-300 bg-zinc-950 p-2 rounded border border-zinc-800">{log.action_plan}</p>
-                      </div>
-                    )}
-                    {!log.comments && !log.action_plan && <p className="text-zinc-500 italic">Sin detalles adicionales.</p>}
-                  </CardContent>
-                </Card>
-              ))
-            }
+             <h3 className="text-white font-bold">Historial Detallado</h3>
+             {rolLogs.map((l:any) => (
+               <Card key={l.id} className="bg-zinc-900 border-zinc-800">
+                 <CardContent className="pt-4">
+                   <div className="flex justify-between items-start mb-2">
+                     <div className="flex items-center gap-2">
+                       <span className="text-white font-bold text-lg">Sesión {l.session_number}</span>
+                       <Badge className={l.risk_level === 'high' ? 'bg-red-900 text-red-300' : l.risk_level === 'medium' ? 'bg-yellow-900 text-yellow-300' : 'bg-green-900 text-green-300'}>
+                         {l.risk_level === 'high' ? 'Riesgo Alto' : l.risk_level === 'medium' ? 'Riesgo Medio' : 'Riesgo Bajo'}
+                       </Badge>
+                     </div>
+                     <span className="text-xs text-zinc-500">{new Date(l.created_at).toLocaleDateString()}</span>
+                   </div>
+                   {l.comments && <p className="text-sm text-zinc-300 mt-2"><span className="text-zinc-500 font-bold">Comentario:</span> {l.comments}</p>}
+                   {l.action_plan && <p className="text-sm text-zinc-300 mt-1"><span className="text-zinc-500 font-bold">Plan de Acción:</span> {l.action_plan}</p>}
+                 </CardContent>
+               </Card>
+             ))}
           </div>
         </div>
       ) : (
-        /* --- DATOS CLÃNICOS --- */
+        /* --- DATOS CLÍNICOS --- */
         <div className="space-y-6 animate-in fade-in">
           {/* Sub-Tabs Internas */}
           <div className="flex gap-2 mb-4 pl-4 border-l-2 border-blue-500">
@@ -424,61 +394,43 @@ export default function ClinicalRecord() {
 
           {innerTab === 'protocol' ? (
             <div className="space-y-6">
-              
-              {/* NUEVO: DATOS SOCIODEMOGRÃFICOS EDITABLES */}
-              <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-purple-500">
-                <CardHeader><CardTitle className="text-white flex items-center gap-2"><User className="w-5 h-5 text-purple-400"/> Datos SociodemogrÃ¡ficos</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs text-zinc-400 flex items-center gap-1"><Phone className="w-3 h-3"/> TelÃ©fono</label>
-                      <input type="text" value={demoPhone} onChange={e=>setDemoPhone(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
-                    </div>
-                    <div>
-                      <label className="text-xs text-zinc-400 flex items-center gap-1"><Calendar className="w-3 h-3"/> Fecha de Nacimiento</label>
-                      <input type="date" value={demoBirthDate} onChange={e=>setDemoBirthDate(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
-                    </div>
-                    <div>
-                      <label className="text-xs text-zinc-400 flex items-center gap-1"><Briefcase className="w-3 h-3"/> OcupaciÃ³n</label>
-                      <input type="text" value={demoOccupation} onChange={e=>setDemoOccupation(e.target.value)} placeholder="Ej: Empresario, Estudiante..." className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/>
-                    </div>
-                    <div>
-                      <label className="text-xs text-zinc-400">Estado Civil</label>
-                      <select value={demoMaritalStatus} onChange={e=>setDemoMaritalStatus(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white">
-                        <option value="">Seleccionar...</option>
-                        <option value="Soltero">Soltero/a</option>
-                        <option value="Casado">Casado/a</option>
-                        <option value="Divorciado">Divorciado/a</option>
-                        <option value="Viudo">Viudo/a</option>
-                        <option value="Union Libre">UniÃ³n Libre</option>
-                      </select>
-                    </div>
-                  </div>
-                  <Button onClick={handleSaveDemographics} disabled={savingDemo} className="w-full bg-purple-700 hover:bg-purple-600 text-white">
-                    {savingDemo ? 'Guardando...' : 'Actualizar Datos SociodemogrÃ¡ficos'}
-                  </Button>
+              {/* Datos Sociodemográficos Editables */}
+              <Card className="bg-zinc-900 border-zinc-800">
+                <CardHeader><CardTitle className="text-white text-sm">Datos Sociodemográficos</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div><label className="text-xs text-zinc-400">Teléfono</label><input value={patient.phone||''} onChange={async (e)=>{ await supabase.from('patients').update({phone:e.target.value}).eq('id', patientId); setPatient({...patient, phone:e.target.value}); }} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
+                   <div><label className="text-xs text-zinc-400">Ocupación</label><input value={patient.occupation||''} onChange={async (e)=>{ await supabase.from('patients').update({occupation:e.target.value}).eq('id', patientId); setPatient({...patient, occupation:e.target.value}); }} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
+                   <div><label className="text-xs text-zinc-400">Fecha Nacimiento</label><input type="date" value={patient.birth_date||''} onChange={async (e)=>{ await supabase.from('patients').update({birth_date:e.target.value}).eq('id', patientId); setPatient({...patient, birth_date:e.target.value}); }} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
+                   <div><label className="text-xs text-zinc-400">Estado Civil</label><input value={patient.marital_status||''} onChange={async (e)=>{ await supabase.from('patients').update({marital_status:e.target.value}).eq('id', patientId); setPatient({...patient, marital_status:e.target.value}); }} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
                 </CardContent>
               </Card>
 
-              {/* GestiÃ³n de Estado */}
               <Card className="bg-zinc-900 border-zinc-800">
-                <CardHeader><CardTitle className="text-white text-sm">GestiÃ³n RÃ¡pida de Estado</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-white text-sm">Gestión Rápida de Estado</CardTitle></CardHeader>
                 <CardContent className="flex gap-4 items-end">
                   <div className="flex-1"><label className="text-xs text-zinc-400">Estado</label><select value={currentStatus} onChange={e=>setCurrentStatus(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"><option value="active">Activo</option><option value="inactive">Inactivo</option><option value="deserter">Desertor</option></select></div>
+                  {(currentStatus === 'inactive' || currentStatus === 'deserter') && (
+                     <div className="flex-1"><label className="text-xs text-zinc-400">Fecha</label><input type="date" value={statusDate} onChange={e=>setStatusDate(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
+                  )}
+                  {currentStatus === 'inactive' && (
+                     <div className="flex-1"><label className="text-xs text-zinc-400">Retorno</label><input type="date" value={expectedReturn} onChange={e=>setExpectedReturn(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
+                  )}
                   <Button onClick={handleSaveStatus} disabled={savingStatus} className="bg-blue-600">{savingStatus?'...':'Actualizar'}</Button>
                 </CardContent>
+                {(currentStatus === 'inactive' || currentStatus === 'deserter') && (
+                   <div className="px-4 pb-4"><label className="text-xs text-zinc-400">Comentario</label><textarea value={statusComment} onChange={e=>setStatusComment(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white h-20 mt-1"/></div>
+                )}
               </Card>
 
-              {/* Formulario Protocolo Editable */}
               <div className="space-y-4">
-                <div><label className="text-xs text-blue-400 font-bold block mb-1">I. DATOS DE FILIACIÃ“N</label><textarea value={protoAffiliation} onChange={e=>setProtoAffiliation(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-32"/></div>
-                <div><label className="text-xs text-blue-400 font-bold block mb-1">II. EVALUACIÃ“N CAPITAL MENTAL</label><textarea value={protoMentalCapital} onChange={e=>setProtoMentalCapital(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
-                <div><label className="text-xs text-blue-400 font-bold block mb-1">III. DIAGNÃ“STICO FUNCIONAL</label><textarea value={protoDiagnosis} onChange={e=>setProtoDiagnosis(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
-                <div><label className="text-xs text-blue-400 font-bold block mb-1">IV. ANÃLISIS POR EJES</label><textarea value={protoAxes} onChange={e=>setProtoAxes(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-64"/></div>
+                <div><label className="text-xs text-blue-400 font-bold block mb-1">I. DATOS DE FILIACIÓN</label><textarea value={protoAffiliation} onChange={e=>setProtoAffiliation(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-32"/></div>
+                <div><label className="text-xs text-blue-400 font-bold block mb-1">II. EVALUACIÓN CAPITAL MENTAL</label><textarea value={protoMentalCapital} onChange={e=>setProtoMentalCapital(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
+                <div><label className="text-xs text-blue-400 font-bold block mb-1">III. DIAGNÓSTICO FUNCIONAL</label><textarea value={protoDiagnosis} onChange={e=>setProtoDiagnosis(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
+                <div><label className="text-xs text-blue-400 font-bold block mb-1">IV. ANÁLISIS POR EJES</label><textarea value={protoAxes} onChange={e=>setProtoAxes(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-64"/></div>
                 <div><label className="text-xs text-blue-400 font-bold block mb-1">V. PLAN DE TRATAMIENTO</label><textarea value={protoPlan} onChange={e=>setProtoPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
                 
                 <Button onClick={handleSaveProtocol} disabled={savingProto} className="w-full bg-green-700 hover:bg-green-600 text-white py-4 text-lg font-bold">
-                  {savingProto ? 'Guardando...' : 'ðŸ’¾ GUARDAR HISTORIA CLÃNICA COMPLETA'}
+                  {savingProto ? 'Guardando...' : '💾 GUARDAR HISTORIA CLÍNICA COMPLETA'}
                 </Button>
               </div>
             </div>
@@ -486,17 +438,17 @@ export default function ClinicalRecord() {
             /* --- HISTORIAL DE SESIONES --- */
             <div className="space-y-6">
               <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-blue-500">
-                <CardHeader><CardTitle className="text-white">{editingSessionId ? 'âœï¸ Editando SesiÃ³n' : 'Registrar Nueva SesiÃ³n'}</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-white">{editingSessionId ? '✏️ Editando Sesión' : 'Registrar Nueva Sesión'}</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div><label className="text-xs text-zinc-400">NÂ° SesiÃ³n</label><input type="number" id="sessNum" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
-                    <div className="col-span-2"><label className="text-xs text-zinc-400">MÃ³dulo/Tema</label><input type="text" id="sessTopic" placeholder="Ej: MÃ³dulo 2" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
+                    <div><label className="text-xs text-zinc-400">N° Sesión</label><input type="number" id="sessNum" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
+                    <div className="col-span-2"><label className="text-xs text-zinc-400">Módulo/Tema</label><input type="text" id="sessTopic" placeholder="Ej: Módulo 2" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
                     <div><label className="text-xs text-zinc-400">Estado (0-10)</label><input type="number" min="0" max="10" id="sessScore" className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
                   </div>
                   <div><label className="text-xs text-zinc-400">Observaciones</label><textarea id="sessObs" rows={3} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"></textarea></div>
                   <div><label className="text-xs text-zinc-400">Compromisos</label><textarea id="sessComm" rows={2} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"></textarea></div>
                   <div className="flex gap-2">
-                    <Button onClick={handleSaveSession} className="flex-1 bg-blue-600">{editingSessionId ? 'Actualizar SesiÃ³n' : 'Guardar SesiÃ³n'}</Button>
+                    <Button onClick={handleSaveSession} className="flex-1 bg-blue-600">{editingSessionId ? 'Actualizar Sesión' : 'Guardar Sesión'}</Button>
                     {editingSessionId && <Button onClick={() => {setEditingSessionId(null); fetchSessionHistory();}} variant="outline" className="border-zinc-600 text-zinc-300">Cancelar</Button>}
                   </div>
                 </CardContent>
@@ -508,7 +460,7 @@ export default function ClinicalRecord() {
                   <Card key={s.id} className="bg-zinc-900 border-zinc-800">
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-white font-bold">SesiÃ³n {s.session_number}: {s.module_topic}</span>
+                        <span className="text-white font-bold">Sesión {s.session_number}: {s.module_topic}</span>
                         <div className="flex gap-2 items-center">
                           <Badge className={s.patient_status_score>=7?'bg-green-900':s.patient_status_score>=4?'bg-yellow-900':'bg-red-900'}>{s.patient_status_score}/10</Badge>
                           <button onClick={() => handleEditSession(s)} className="text-blue-400 hover:text-blue-300"><Edit2 size={16}/></button>

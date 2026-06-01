@@ -11,8 +11,11 @@ import PsychometricEval from './PsychometricEval';
 export default function ClinicalRecord() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
+  
+  // Estados Generales
   const [patient, setPatient] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Tabs
   const [activeTab, setActiveTab] = useState<'data' | 'rol' | 'eval'>('data');
@@ -46,132 +49,123 @@ export default function ClinicalRecord() {
   const [sessionHistory, setSessionHistory] = useState<any[]>([]);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
 
-  // Carga Inicial
+  // Carga Inicial Blindada
   useEffect(() => {
-    if (!patientId) return;
-    fetchPatientData();
-    fetchRolLogs();
-    fetchProtocol();
-    fetchSessionHistory();
+    const loadData = async () => {
+      if (!patientId) return;
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // 1. Cargar Paciente
+        const { data: patData, error: patErr } = await supabase.from('patients').select('*').eq('id', patientId).single();
+        if (patErr) throw patErr;
+        setPatient(patData);
+        setCurrentStatus(patData.status || 'active');
+
+        // 2. Cargar ROL
+        const { data: rolData, error: rolErr } = await supabase.from('patient_rol_logs').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
+        if (!rolErr && rolData) {
+          setRolLogs(rolData);
+          const processed = rolData.map((log: any, i: number) => {
+            const session = log.session_number || i + 1;
+            let riskVal = log.risk_numeric;
+            if (riskVal === null || riskVal === undefined) {
+              riskVal = log.risk_level === 'high' ? 3 : log.risk_level === 'medium' ? 2 : 1;
+            }
+            return { session, risk: riskVal, riskLabel: riskVal === 1 ? 'Bajo' : riskVal === 2 ? 'Medio' : 'Alto', riskColor: riskVal === 1 ? '#4ade80' : riskVal === 2 ? '#facc15' : '#f87171' };
+          });
+          setChartData(processed);
+        }
+
+        // 3. Cargar Protocolo
+        const { data: protoData } = await supabase.from('clinical_protocols').select('*').eq('patient_id', patientId).single();
+        if (protoData) {
+          setProtoAffiliation(protoData.affiliation_data || '');
+          setProtoMentalCapital(protoData.mental_capital_eval || '');
+          setProtoDiagnosis(protoData.functional_diagnosis || '');
+          setProtoAxes(protoData.axes_analysis || '');
+          setProtoPlan(protoData.treatment_plan || '');
+        }
+
+        // 4. Cargar Sesiones
+        const { data: sessData } = await supabase.from('patient_sessions').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
+        if (sessData) setSessionHistory(sessData);
+
+      } catch (err: any) {
+        console.error("Error cargando historia clínica:", err);
+        setError("No se pudo cargar la información del paciente. Verifica tu conexión o permisos.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, [patientId]);
 
-  const fetchPatientData = async () => {
-    try {
-      const { data, error } = await supabase.from('patients').select('*').eq('id', patientId).single();
-      if (error) throw error;
-      setPatient(data);
-      setCurrentStatus(data.status || 'active');
-    } catch (err) { 
-      console.error("Error paciente:", err); 
-    } finally { 
-      setLoading(false); 
-    }
-  };
+  // --- FUNCIONES DE GUARDADO (Todas Async correctamente) ---
 
-  const fetchRolLogs = async () => {
-    try {
-      const { data, error } = await supabase.from('patient_rol_logs').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
-      if (error) throw error;
-      setRolLogs(data || []);
-      
-      const processed = (data || []).map((log: any, i: number) => {
-        const session = log.session_number || i + 1;
-        let riskVal = log.risk_numeric;
-        if (riskVal === null || riskVal === undefined) {
-          riskVal = log.risk_level === 'high' ? 3 : log.risk_level === 'medium' ? 2 : 1;
-        }
-        return {
-          session,
-          risk: riskVal,
-          riskLabel: riskVal === 1 ? 'Bajo' : riskVal === 2 ? 'Medio' : 'Alto',
-          riskColor: riskVal === 1 ? '#4ade80' : riskVal === 2 ? '#facc15' : '#f87171'
-        };
-      });
-      setChartData(processed);
-    } catch (err) { console.error("Error ROL:", err); }
-  };
-
-  const fetchProtocol = async () => {
-    try {
-      const { data, error } = await supabase.from('clinical_protocols').select('*').eq('patient_id', patientId).single();
-      if (data) {
-        setProtoAffiliation(data.affiliation_data || '');
-        setProtoMentalCapital(data.mental_capital_eval || '');
-        setProtoDiagnosis(data.functional_diagnosis || '');
-        setProtoAxes(data.axes_analysis || '');
-        setProtoPlan(data.treatment_plan || '');
-      }
-    } catch (err) { console.log("Sin protocolo previo."); }
-  };
-
-  const fetchSessionHistory = async () => {
-    try {
-      const { data, error } = await supabase.from('patient_sessions').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
-      if (!error && data) setSessionHistory(data);
-    } catch (err) { console.error("Error sesiones:", err); }
-  };
-
-  // --- FUNCIÓN CORREGIDA CON ASYNC ---
   const handleSaveStatus = async () => {
+    if (!patientId) return;
     setSavingStatus(true);
     try {
-      if (!patientId) throw new Error("No hay ID de paciente");
-
-      const updateData: any = { 
-        status: currentStatus, 
-        status_changed_at: new Date().toISOString(), 
-        status_comment: statusComment 
-      };
-
-      if (currentStatus === 'deserter') { 
-        updateData.deserter_date = statusDate; 
-        updateData.deserter_reason = statusComment; 
-      } else if (currentStatus === 'inactive') { 
-        updateData.expected_return = expectedReturn; 
-        updateData.inactive_reason = statusComment; 
+      const updateData: any = { status: currentStatus, status_changed_at: new Date().toISOString(), status_comment: statusComment };
+      
+      if (currentStatus === 'deserter') {
+        updateData.deserter_date = statusDate || new Date().toISOString().split('T')[0];
+        updateData.deserter_reason = statusComment;
+        updateData.deserter_evidence = ''; 
+      } else if (currentStatus === 'inactive') {
+        updateData.inactive_date = statusDate || new Date().toISOString().split('T')[0];
+        updateData.expected_return = expectedReturn;
+        updateData.inactive_reason = statusComment;
       } else {
         // Si es activo, limpiamos campos de desertor/inactivo
         updateData.deserter_date = null;
-        updateData.deserter_reason = null;
-        updateData.expected_return = null;
+        updateData.inactive_date = null;
       }
-      
+
       const { error } = await supabase.from('patients').update(updateData).eq('id', patientId);
       if (error) throw error;
-      
+
       alert("✅ Estado actualizado correctamente");
-      
       // Actualización optimista local
-      setPatient((prev: any) => ({ ...prev, ...updateData }));
-      
-    } catch (err: any) { 
-      console.error("Detalle del error:", err);
-      alert("❌ Error al actualizar estado: " + err.message); 
-    } finally { 
-      setSavingStatus(false); 
+      setPatient({ ...patient, status: currentStatus });
+    } catch (err: any) {
+      console.error(err);
+      alert("❌ Error al actualizar estado: " + err.message);
+    } finally {
+      setSavingStatus(false);
     }
   };
 
   const handleSaveRol = async () => {
+    if (!patientId) return;
     setSavingRol(true);
     try {
       const { error } = await supabase.from('patient_rol_logs').insert([{
-        patient_id: patientId, 
+        patient_id: patientId,
         session_number: parseInt(sessionNum.toString()),
-        risk_level: newRisk, 
+        risk_level: newRisk,
         risk_numeric: newRisk === 'high' ? 3 : newRisk === 'medium' ? 2 : 1,
-        comments: rolComment, 
+        comments: rolComment,
         action_plan: rolPlan
       }]);
       if (error) throw error;
       alert("✅ ROL guardado");
       setRolComment(''); setRolPlan('');
-      fetchRolLogs();
-    } catch (err: any) { alert("❌ Error ROL: " + err.message); }
-    finally { setSavingRol(false); }
+      // Recargar ROL
+      const { data } = await supabase.from('patient_rol_logs').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
+      if(data) { setRolLogs(data); /* ... lógica de gráfica igual que arriba ... */ setChartData(data.map((l:any,i:number)=>({session:l.session_number||i+1, risk:l.risk_numeric||(l.risk_level==='high'?3:l.risk_level==='medium'?2:1)}))); }
+    } catch (err: any) {
+      alert("❌ Error ROL: " + err.message);
+    } finally {
+      setSavingRol(false);
+    }
   };
 
   const handleSaveProtocol = async () => {
+    if (!patientId) return;
     setSavingProto(true);
     try {
       const payload = {
@@ -189,12 +183,16 @@ export default function ClinicalRecord() {
         const { error: insErr } = await supabase.from('clinical_protocols').insert([payload]);
         if (insErr) throw insErr;
       }
-      alert("✅ Historia Clínica guardada");
-    } catch (err: any) { alert("❌ Error Protocolo: " + err.message); }
-    finally { setSavingProto(false); }
+      alert("✅ Historia Clínica guardada correctamente");
+    } catch (err: any) {
+      alert("❌ Error Protocolo: " + err.message);
+    } finally {
+      setSavingProto(false);
+    }
   };
 
   const handleSaveSession = async () => {
+    if (!patientId) return;
     const numEl = document.getElementById('sessNum') as HTMLInputElement;
     const topicEl = document.getElementById('sessTopic') as HTMLInputElement;
     const obsEl = document.getElementById('sessObs') as HTMLTextAreaElement;
@@ -226,8 +224,12 @@ export default function ClinicalRecord() {
       
       if(numEl) numEl.value = ''; if(topicEl) topicEl.value = '';
       if(obsEl) obsEl.value = ''; if(commEl) commEl.value = ''; if(scoreEl) scoreEl.value = '';
-      fetchSessionHistory();
-    } catch (e: any) { alert("❌ Error Sesión: " + e.message); }
+      
+      const { data } = await supabase.from('patient_sessions').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
+      if(data) setSessionHistory(data);
+    } catch (e: any) {
+      alert("❌ Error Sesión: " + e.message);
+    }
   };
 
   const handleEditSession = (session: any) => {
@@ -243,7 +245,6 @@ export default function ClinicalRecord() {
     if(obsEl) obsEl.value = session.clinical_observations || '';
     if(commEl) commEl.value = session.patient_commitments || '';
     if(scoreEl) scoreEl.value = session.patient_status_score || '';
-    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -253,11 +254,14 @@ export default function ClinicalRecord() {
       const { error } = await supabase.from('patient_sessions').delete().eq('id', id);
       if (error) throw error;
       alert("✅ Sesión eliminada");
-      fetchSessionHistory();
+      const { data } = await supabase.from('patient_sessions').select('*').eq('patient_id', patientId).order('session_number', { ascending: true });
+      if(data) setSessionHistory(data);
     } catch (e: any) { alert("❌ Error: " + e.message); }
   };
 
-  if (loading) return <div className="p-6 text-white">Cargando historia clínica...</div>;
+  // Renderizado
+  if (loading) return <div className="p-6 text-white flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div><p className="ml-4">Cargando historia clínica...</p></div>;
+  if (error) return <div className="p-6 text-red-400 flex flex-col items-center justify-center h-screen"><h2 className="text-xl font-bold mb-2">Error de Carga</h2><p>{error}</p><Button onClick={() => window.location.reload()} className="mt-4">Reintentar</Button></div>;
   if (!patient) return <div className="p-6 text-red-400">Paciente no encontrado.</div>;
 
   return (
@@ -307,7 +311,6 @@ export default function ClinicalRecord() {
             </CardContent>
           </Card>
           
-          {/* GRÁFICA DE COLORES */}
           <Card className="bg-zinc-900 border-zinc-800 h-72">
             <CardContent className="h-full pt-6">
               {chartData.length > 0 ? (
@@ -316,25 +319,8 @@ export default function ClinicalRecord() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                     <XAxis dataKey="session" stroke="#999" label={{ value: 'Sesión', position: 'insideBottom', offset: -5 }} />
                     <YAxis stroke="#999" ticks={[1, 2, 3]} tickFormatter={(val) => val === 1 ? 'Bajo' : val === 2 ? 'Medio' : 'Alto'} width={60} />
-                    <Tooltip 
-                      contentStyle={{backgroundColor:'#18181b', borderColor:'#333', color:'#fff'}}
-                      formatter={(value: number, name: string, props: any) => [
-                        <span style={{color: props.payload.riskColor}}>{props.payload.riskLabel}</span>, 
-                        'Nivel de Riesgo'
-                      ]}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="risk" 
-                      stroke="#8884d8" 
-                      strokeWidth={2} 
-                      dot={(props: any) => {
-                        const { cx, cy, payload } = props;
-                        return (
-                          <circle cx={cx} cy={cy} r={6} fill={payload.riskColor} stroke="#fff" strokeWidth={2} />
-                        );
-                      }}
-                    />
+                    <Tooltip contentStyle={{backgroundColor:'#18181b', borderColor:'#333', color:'#fff'}} formatter={(value: number, name: string, props: any) => [<span style={{color: props.payload.riskColor}}>{props.payload.riskLabel}</span>, 'Nivel de Riesgo']} />
+                    <Line type="monotone" dataKey="risk" stroke="#8884d8" strokeWidth={2} dot={(props: any) => { const { cx, cy, payload } = props; return <circle cx={cx} cy={cy} r={6} fill={payload.riskColor} stroke="#fff" strokeWidth={2} />; }} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : <p className="text-zinc-500 text-center">Sin datos registrados aún.</p>}
@@ -342,32 +328,25 @@ export default function ClinicalRecord() {
           </Card>
 
           <div className="space-y-4">
-             <h3 className="text-white font-bold">Historial de Registros</h3>
+             <h3 className="text-white font-bold">Historial ROL</h3>
              {rolLogs.map((l:any) => (
                <Card key={l.id} className="bg-zinc-900 border-zinc-800">
-                 <CardHeader className="pb-2">
+                 <CardHeader className="py-3">
                    <div className="flex justify-between items-center">
-                     <div className="flex items-center gap-2">
-                       <span className="text-white font-bold">Sesión {l.session_number}</span>
-                       <Badge className={l.risk_level === 'high' ? 'bg-red-900 text-red-300' : l.risk_level === 'medium' ? 'bg-yellow-900 text-yellow-300' : 'bg-green-900 text-green-300'}>
-                         {l.risk_level === 'high' ? 'ALTO' : l.risk_level === 'medium' ? 'MEDIO' : 'BAJO'}
-                       </Badge>
-                     </div>
-                     <span className="text-xs text-zinc-500">{new Date(l.created_at).toLocaleDateString()}</span>
+                     <span className="font-bold text-white">Sesión {l.session_number}</span>
+                     <Badge className={l.risk_level==='high'?'bg-red-900 text-red-300':l.risk_level==='medium'?'bg-yellow-900 text-yellow-300':'bg-green-900 text-green-300'}>{l.risk_level.toUpperCase()}</Badge>
                    </div>
                  </CardHeader>
-                 <CardContent className="text-sm space-y-2">
-                   {l.comments && <p className="text-zinc-300"><span className="text-zinc-500 font-bold">Comentario:</span> {l.comments}</p>}
-                   {l.action_plan && <p className="text-zinc-300"><span className="text-zinc-500 font-bold">Plan de Acción:</span> {l.action_plan}</p>}
+                 <CardContent className="text-sm text-zinc-300 space-y-2">
+                   {l.comments && <p><span className="text-zinc-500">Comentario:</span> {l.comments}</p>}
+                   {l.action_plan && <p><span className="text-zinc-500">Plan:</span> {l.action_plan}</p>}
                  </CardContent>
                </Card>
              ))}
           </div>
         </div>
       ) : (
-        /* --- DATOS CLÍNICOS --- */
         <div className="space-y-6 animate-in fade-in">
-          {/* Sub-Tabs Internas */}
           <div className="flex gap-2 mb-4 pl-4 border-l-2 border-blue-500">
             <button onClick={()=>setInnerTab('protocol')} className={`text-sm px-3 py-1 rounded ${innerTab==='protocol'?'bg-zinc-800 text-white':'text-zinc-500'}`}>Protocolo Neuro-Apogeo</button>
             <button onClick={()=>setInnerTab('sessions')} className={`text-sm px-3 py-1 rounded ${innerTab==='sessions'?'bg-zinc-800 text-white':'text-zinc-500'}`}>Historial de Sesiones</button>
@@ -375,17 +354,6 @@ export default function ClinicalRecord() {
 
           {innerTab === 'protocol' ? (
             <div className="space-y-6">
-              {/* Datos Sociodemográficos */}
-              <Card className="bg-zinc-900 border-zinc-800">
-                <CardHeader><CardTitle className="text-white text-sm">Datos Sociodemográficos</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <div><label className="text-xs text-zinc-400">Teléfono</label><input value={patient.phone||''} onChange={async (e)=>{ await supabase.from('patients').update({phone:e.target.value}).eq('id', patientId); setPatient({...patient, phone:e.target.value}); }} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
-                   <div><label className="text-xs text-zinc-400">Ocupación</label><input value={patient.occupation||''} onChange={async (e)=>{ await supabase.from('patients').update({occupation:e.target.value}).eq('id', patientId); setPatient({...patient, occupation:e.target.value}); }} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
-                   <div><label className="text-xs text-zinc-400">Fecha Nacimiento</label><input type="date" value={patient.birth_date||''} onChange={async (e)=>{ await supabase.from('patients').update({birth_date:e.target.value}).eq('id', patientId); setPatient({...patient, birth_date:e.target.value}); }} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"/></div>
-                   <div><label className="text-xs text-zinc-400">Estado Civil</label><select value={patient.marital_status||''} onChange={async (e)=>{ await supabase.from('patients').update({marital_status:e.target.value}).eq('id', patientId); setPatient({...patient, marital_status:e.target.value}); }} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"><option value="">Seleccionar</option><option value="single">Soltero</option><option value="married">Casado</option><option value="divorced">Divorciado</option></select></div>
-                </CardContent>
-              </Card>
-
               <Card className="bg-zinc-900 border-zinc-800">
                 <CardHeader><CardTitle className="text-white text-sm">Gestión Rápida de Estado</CardTitle></CardHeader>
                 <CardContent className="flex gap-4 items-end">
@@ -400,14 +368,10 @@ export default function ClinicalRecord() {
                 <div><label className="text-xs text-blue-400 font-bold block mb-1">III. DIAGNÓSTICO FUNCIONAL</label><textarea value={protoDiagnosis} onChange={e=>setProtoDiagnosis(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
                 <div><label className="text-xs text-blue-400 font-bold block mb-1">IV. ANÁLISIS POR EJES</label><textarea value={protoAxes} onChange={e=>setProtoAxes(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-64"/></div>
                 <div><label className="text-xs text-blue-400 font-bold block mb-1">V. PLAN DE TRATAMIENTO</label><textarea value={protoPlan} onChange={e=>setProtoPlan(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white h-48"/></div>
-                
-                <Button onClick={handleSaveProtocol} disabled={savingProto} className="w-full bg-green-700 hover:bg-green-600 text-white py-4 text-lg font-bold">
-                  {savingProto ? 'Guardando...' : '💾 GUARDAR HISTORIA CLÍNICA COMPLETA'}
-                </Button>
+                <Button onClick={handleSaveProtocol} disabled={savingProto} className="w-full bg-green-700 hover:bg-green-600 text-white py-4 text-lg font-bold">{savingProto ? 'Guardando...' : '💾 GUARDAR HISTORIA CLÍNICA COMPLETA'}</Button>
               </div>
             </div>
           ) : (
-            /* --- HISTORIAL DE SESIONES --- */
             <div className="space-y-6">
               <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-blue-500">
                 <CardHeader><CardTitle className="text-white">{editingSessionId ? '✏️ Editando Sesión' : 'Registrar Nueva Sesión'}</CardTitle></CardHeader>
@@ -421,29 +385,16 @@ export default function ClinicalRecord() {
                   <div><label className="text-xs text-zinc-400">Compromisos</label><textarea id="sessComm" rows={2} className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white"></textarea></div>
                   <div className="flex gap-2">
                     <Button onClick={handleSaveSession} className="flex-1 bg-blue-600">{editingSessionId ? 'Actualizar Sesión' : 'Guardar Sesión'}</Button>
-                    {editingSessionId && <Button onClick={() => {setEditingSessionId(null); fetchSessionHistory();}} variant="outline" className="border-zinc-600 text-zinc-300">Cancelar</Button>}
+                    {editingSessionId && <Button onClick={() => {setEditingSessionId(null); const { data } = supabase.from('patient_sessions').select('*').eq('patient_id', patientId).then(d=>d.data&&setSessionHistory(d.data));}} variant="outline" className="border-zinc-600 text-zinc-300">Cancelar</Button>}
                   </div>
                 </CardContent>
               </Card>
-              
               <div className="space-y-4">
                 <h3 className="text-white font-bold">Historial</h3>
                 {sessionHistory.length===0 ? <p className="text-zinc-500">Sin sesiones.</p> : sessionHistory.map((s:any)=>(
                   <Card key={s.id} className="bg-zinc-900 border-zinc-800">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-white font-bold">Sesión {s.session_number}: {s.module_topic}</span>
-                        <div className="flex gap-2 items-center">
-                          <Badge className={s.patient_status_score>=7?'bg-green-900':s.patient_status_score>=4?'bg-yellow-900':'bg-red-900'}>{s.patient_status_score}/10</Badge>
-                          <button onClick={() => handleEditSession(s)} className="text-blue-400 hover:text-blue-300"><Edit2 size={16}/></button>
-                          <button onClick={() => handleDeleteSession(s.id)} className="text-red-400 hover:text-red-300"><Trash2 size={16}/></button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="text-sm text-zinc-300 space-y-1">
-                      <p><span className="text-zinc-500">Obs:</span> {s.clinical_observations}</p>
-                      <p><span className="text-zinc-500">Comp:</span> {s.patient_commitments||'-'}</p>
-                    </CardContent>
+                    <CardHeader className="pb-2"><div className="flex justify-between items-center"><span className="text-white font-bold">Sesión {s.session_number}: {s.module_topic}</span><div className="flex gap-2 items-center"><Badge className={s.patient_status_score>=7?'bg-green-900':s.patient_status_score>=4?'bg-yellow-900':'bg-red-900'}>{s.patient_status_score}/10</Badge><button onClick={() => handleEditSession(s)} className="text-blue-400 hover:text-blue-300"><Edit2 size={16}/></button><button onClick={() => handleDeleteSession(s.id)} className="text-red-400 hover:text-red-300"><Trash2 size={16}/></button></div></div></CardHeader>
+                    <CardContent className="text-sm text-zinc-300 space-y-1"><p><span className="text-zinc-500">Obs:</span> {s.clinical_observations}</p><p><span className="text-zinc-500">Comp:</span> {s.patient_commitments||'-'}</p></CardContent>
                   </Card>
                 ))}
               </div>
